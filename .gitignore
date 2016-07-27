@@ -1,2 +1,19 @@
 # Allows to ignore .git folder in Volly tree.
 .git/
+
+# Server #
+##########
+
+# Play generated artifacts
+logs
+project/project
+project/target
+target
+tmp
+dist
+.cache
+.sbtserver*
+
+# Idea project files
+.idea/
+
