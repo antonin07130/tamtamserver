@@ -4,6 +4,13 @@
 
 # An example controller showing a sample home page
 GET     /                           controllers.HomeController.index
+
+# An example controller returning a list of users
+GET     /users                      controllers.HomeController.getUsers
+
+# An example controller returning a list of users
+#GET     /users2                      controllers.HomeController.index
+
 # An example controller showing how to use dependency injection
 #GET     /count                      controllers.CountController.count
 # An example controller showing how to write asynchronous code
