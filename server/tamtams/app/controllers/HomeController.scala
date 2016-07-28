@@ -8,7 +8,7 @@ import play.api.mvc._
 import play.api.http.HttpEntity
 
 
-import objects._
+import logic._
 import play.api.Logger
 import play.api.libs.json._
 
@@ -71,5 +71,8 @@ class HomeController @Inject() extends Controller {
     )
   }
 
+
+  
+  def getThings(lat: Double, lon : Double) = TODO
 
 }

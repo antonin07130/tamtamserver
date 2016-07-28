@@ -8,8 +8,13 @@ GET     /                           controllers.HomeController.index
 # An example controller returning a list of users
 GET     /users                      controllers.HomeController.getUsers
 
+# An example controller returning objects near a longitude and latitude
+GET     /things                     controllers.HomeController.getThings(lat: Double, lon : Double)
+
 # An example controller returning a list of users
 #GET     /users2                      controllers.HomeController.index
+
+
 
 # An example controller showing how to use dependency injection
 #GET     /count                      controllers.CountController.count

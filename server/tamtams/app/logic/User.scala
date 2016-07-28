@@ -1,4 +1,4 @@
-package objects
+package logic
 
 //todo : cleanup this mess and make it pretty
 
