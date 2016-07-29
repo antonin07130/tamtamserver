@@ -12,6 +12,8 @@ import logic._
 import play.api.Logger
 import play.api.libs.json._
 
+
+
 /**
  * This controller creates an `Action` to handle HTTP requests to the
  * application's home page.
@@ -35,20 +37,8 @@ class HomeController @Inject() extends Controller {
   //todo : cleanup this mess and make it pretty
 
   def returnUsersAction = Action {
-    val rocky = User(1,"Rocky",38)
-    val steve = User(2,"Steve",50)
-    val melinda = User(3,"Melinda",38)
-
-    val usersList : Seq[User] = Seq(rocky,steve,melinda)
-    Logger.info(s"tamtams : users created : $usersList.")
-
-
-
-    case class Location(lat: Double, long: Double)
-    case class Resident(name: String, age: Int, role: Option[String])
-    case class Place(name: String, location: Location, residents: Seq[Resident])
-
     import play.api.libs.json._
+
 
     implicit val userWrites = new Writes[User] {
       def writes(user: User) = Json.obj(
@@ -58,12 +48,16 @@ class HomeController @Inject() extends Controller {
       )
     }
 
-
-    val jsonUsersList = Json.toJson(usersList)
-
+    val jsonUsersList = Json.toJson(UsersGenerator.usersList)
 
     Logger.info(s"tamtams : users converted : $jsonUsersList.")
 
+    val testObjList = ThingsGenerator.testThingString1
+    Logger.info(s"tamtams : things used once : $testObjList.")
+
+    val testThingJson = Json.parse(ThingsGenerator.testThingString1)
+    val testThing : Thing = Json.fromJson[Thing](testThingJson )
+    Logger.info(s"tamtams : things used once : $testThing.")
 
     Result(
       header = ResponseHeader(200, Map.empty),
