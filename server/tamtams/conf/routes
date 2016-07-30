@@ -4,10 +4,25 @@
 
 # An example controller showing a sample home page
 GET     /                           controllers.HomeController.index
-# An example controller showing how to use dependency injection
-#GET     /count                      controllers.CountController.count
-# An example controller showing how to write asynchronous code
-#GET     /message                    controllers.AsyncController.message
+
+# returns the list of Users
+GET     /users                      controllers.HomeController.getUsers
+
+# returns a User
+GET     /users/:userId            controllers.HomeController.getUser(userId: String)
+
+# returns a Thing
+GET     /things/:thingId            controllers.HomeController.getThing(thingId: String)
+
+# TODO returns the list of Things
+#GET     /things                     controllers.HomeController.getThings
+
+# TODO store a Thing
+#PUT     /things                     controllers.HomeController.putThing(thingId: String)
+
+# TODO returns a list of Things near a latitude/longitude
+GET     /things/near/:lat/:lon       controllers.HomeController.getThingsNear(lat: Double, lon : Double)
+
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
