@@ -1,6 +1,6 @@
 package logic
 import play.api.libs.json._
-
+import play.api.libs.functional.syntax._
 
 // todo : implicit functions should be declared in an object or in a class?
 /**
@@ -50,12 +50,38 @@ object JsonConversion {
     def writes(thing: Thing) = Json.obj(
       "id" -> thing.id,
       "pict" -> thing.pict,
-      "description" ->thing.description,
-      "price"->thing.price,
-      "position"->thing.position,
-      "stuck" ->thing.stuck)
+      "description" -> thing.description,
+      "price" -> thing.price,
+      "position"-> thing.position,
+      "stuck" -> thing.stuck)
   }
 
 
+  /**
+    * JSON reader and validation for [[Position]]
+    */
+  implicit val locationReads: Reads[Position] = (
+    (JsPath \ "lat").read[Double] and
+      (JsPath \ "lon").read[Double]
+    )(Position.apply _)
 
+  /**
+    * JSON reader and validation for [[Price]]
+    */
+  implicit val priceReads: Reads[Price] = (
+    (JsPath \ "currency").read[Short] and
+      (JsPath \ "price").read[Float]
+    )(Price.apply _)
+
+  /**
+    * JSON reader and validation for [[Thing]]
+    */
+  implicit val thingReads: Reads[Thing] = (
+    (JsPath \ "id").read[String] and
+      (JsPath \ "pict").read[String] and
+      (JsPath \ "description").read[String] and
+      (JsPath \ "price").read[Price] and
+      (JsPath \"position").read[Position] and
+      (JsPath \"stuck").read[Boolean]
+    )(Thing.apply _)
 }

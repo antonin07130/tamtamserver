@@ -3,16 +3,20 @@
 # ~~~~
 
 # An example controller showing a sample home page
-GET     /                           controllers.HomeController.index
+GET     /                            controllers.HomeController.index
 
 # returns the list of Users
-GET     /users                      controllers.HomeController.getUsers
+GET     /users                       controllers.HomeController.getUsers
 
 # returns a User
-GET     /users/:userId            controllers.HomeController.getUser(userId: String)
+GET     /users/:userId               controllers.HomeController.getUser(userId: String)
 
 # returns a Thing
-GET     /things/:thingId            controllers.HomeController.getThing(thingId: String)
+GET     /things/:thingId             controllers.HomeController.getThing(thingId: String)
+
+# TODO store a thing instead of printing it
+# print a Thing
+PUT     /things/:thingId             controllers.ThingController.putThing(thingId: String)
 
 # TODO returns the list of Things
 #GET     /things                     controllers.HomeController.getThings
