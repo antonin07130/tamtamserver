@@ -18,19 +18,18 @@ import logic.JsonConversion._
 class ThingController @Inject() extends Controller {
 
 
-// TODO : handle bad conversions without exceptions
+// TODO : test
   /**
     * As of today this action can take a Json as a parameter
     * and parse it into a [[Thing]] object.
-    * It throws exceptions when it is unhappy.
+    * It answers with a bad request when unhappy
     * @param thingId Id of the thing to be created
     *                This Id is also part of the Json (Thing/id)
     * @return
     */
-  def putThing(thingId: String) = Action(parse.json) {request =>
+  def putThing(thingId: String) = Action(parse.json[Thing]) {request =>
     Logger.info(request.body.toString())
-    Logger.info(request.body.as[Thing].toString)
-    Ok("gogoog")
+    Ok("Good JSON")
   }
 
 }
