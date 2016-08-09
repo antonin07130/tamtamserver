@@ -2,59 +2,56 @@ package logic
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-// todo : implicit functions should be declared in an object or in a class?
+// todo : object or class ? http://stackoverflow.com/questions/38668171/scala-define-implicit-functions-in-an-object-or-in-a-class
 /**
   * Utility class defining implicit conversion functions
   * for [[Thing]] and [[User]] used by [[play.api.libs.json]]
   */
 object JsonConversion {
 
-
-  implicit val userWrites = new Writes[User] {
-    def writes(user: User) = Json.obj(
-      "id" -> user.id,
-      "name" -> user.name,
-      "age" -> user.age
-    )
-  }
-
-
+  /**
+    * This helper function helps [[play.api.libs.json]]
+    * converting [[User]] to Json
+    */
+  implicit val userWrites: Writes[User] = (
+    (JsPath \ "id").write[String] and
+      (JsPath \ "name").write[String] and
+      (JsPath \ "age").write[Short]
+    )(unlift(User.unapply))
 
   /**
     * This helper function helps [[play.api.libs.json]]
     * converting [[Position]] to Json
     */
-  implicit val locationWrites = new Writes[Position] {
-    def writes(position: Position) = Json.obj(
-      "lat" -> position.lat,
-      "lon" -> position.lon
-    )
-  }
+  implicit val locationWrites: Writes[Position] = (
+    (JsPath \ "lat").write[Double] and
+      (JsPath \ "lon").write[Double]
+    )(unlift(Position.unapply))
+
+
 
   /**
     * This helper function helps [[play.api.libs.json]]
     * converting [[Price]] to Json
     */
-  implicit val priceWrites = new Writes[Price] {
-    def writes(price: Price) = Json.obj(
-      "currency" -> price.currency,
-      "price" -> price.price
-    )
-  }
+  implicit val priceWrites: Writes[Price] = (
+    (JsPath \ "currency").write[Short] and
+      (JsPath \ "price").write[Float]
+    )(unlift(Price.unapply))
+
 
   /**
     * This helper function helps [[play.api.libs.json]]
     * converting [[Thing]] to Json
     */
-  implicit val thingWrites = new Writes[Thing] {
-    def writes(thing: Thing) = Json.obj(
-      "id" -> thing.id,
-      "pict" -> thing.pict,
-      "description" -> thing.description,
-      "price" -> thing.price,
-      "position"-> thing.position,
-      "stuck" -> thing.stuck)
-  }
+  implicit val thingWrites: Writes[Thing] = (
+    (JsPath \ "id").write[String] and
+      (JsPath \ "pict").write[String] and
+      (JsPath \ "description").write[String] and
+      (JsPath \ "price").write[Price] and
+      (JsPath \ "position").write[Position] and
+      (JsPath \ "stuck").write[Boolean]
+    )(unlift(Thing.unapply))
 
 
   /**
