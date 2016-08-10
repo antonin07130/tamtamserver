@@ -24,6 +24,7 @@ import reactivemongo.api.MongoConnection
  * This class needs to run code when the server stops. It uses the
  * application's [[ApplicationLifecycle]] to register a stop hook (callback).
  */
+/*
 @Singleton
 class MongoDbConnector @Inject()(appLifecycle: ApplicationLifecycle) {
 
@@ -46,3 +47,4 @@ class MongoDbConnector @Inject()(appLifecycle: ApplicationLifecycle) {
     Future.successful(())
   }
 }
+*/
