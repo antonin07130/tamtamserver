@@ -18,8 +18,8 @@ GET     /sync/things/:thingId             controllers.ThingController.getThing(t
 # print a Thing
 PUT     /sync/things/:thingId             controllers.ThingController.putThing(thingId: String)
 
-
-
+# record a new Thing to a mongoDb Db (mongoDb server running on localhost)
+PUT     /async/things/:thingId            controllers.AsyncMongoController.createThingAsync(thingId: String)
 
 
 # TODO returns the list of Things
