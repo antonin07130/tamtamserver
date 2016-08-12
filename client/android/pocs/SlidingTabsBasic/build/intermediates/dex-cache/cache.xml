@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<items version="2" >
+
+    <item
+        jar="/Users/pascalbodin/Library/Android/sdk/extras/android/m2repository/com/android/support/support-annotations/23.3.0/support-annotations-23.3.0.jar"
+        jumboMode="true"
+        revision="23.0.3"
+        sha1="db7791d75a07fef9844d06236c1c59ba7bf6997c">
+        <dex dex="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/pre-dexed/debug/support-annotations-23.3.0_ba9cd184c36785a07f1b5a8166f43373843716f9.jar" />
+    </item>
+    <item
+        jar="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/exploded-aar/com.android.support/support-v13/23.3.0/jars/classes.jar"
+        jumboMode="true"
+        revision="23.0.3"
+        sha1="a809555a2599054c3dcd1bf82b089315ac3a11df">
+        <dex dex="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/pre-dexed/debug/com.android.support-support-v13-23.3.0_3d705c6945f7a8da8eed99852c9732be2e5eaa3e.jar" />
+    </item>
+    <item
+        jar="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/exploded-aar/com.android.support/cardview-v7/23.3.0/jars/classes.jar"
+        jumboMode="true"
+        revision="23.0.3"
+        sha1="82ce13fd19cdfde0e392f03c27edeba8d4333648">
+        <dex dex="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/pre-dexed/debug/com.android.support-cardview-v7-23.3.0_8ba8478420e6646743687b956eeabd049496d173.jar" />
+    </item>
+    <item
+        jar="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/incremental-classes/debug/instant-run-bootstrap.jar"
+        jumboMode="true"
+        revision="23.0.3"
+        sha1="26976159d2dfe84be234f157b111485625cdbee6">
+        <dex dex="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/pre-dexed/debug/instant-run-bootstrap_ecd7a3e026aaf6e454d762b7186c0cf6b5f11f35.jar" />
+    </item>
+    <item
+        jar="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/exploded-aar/com.android.support/support-v4/23.3.0/jars/classes.jar"
+        jumboMode="true"
+        revision="23.0.3"
+        sha1="8a034dd16c0dfd75fe86c52c2cd581592acc684a">
+        <dex dex="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/pre-dexed/debug/com.android.support-support-v4-23.3.0_d4ddb570d3984670a56720af71888c99c1e27f53.jar" />
+    </item>
+    <item
+        jar="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/exploded-aar/com.android.support/support-v13/23.3.0/jars/libs/internal_impl-23.3.0.jar"
+        jumboMode="true"
+        revision="23.0.3"
+        sha1="8813bdcf7583107c4873150075d17c8072ec50cf">
+        <dex dex="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/pre-dexed/debug/internal_impl-23.3.0_8f3f5d2f0e8e8409a5dda4a5b382e4e2521b292d.jar" />
+    </item>
+    <item
+        jar="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/incremental-runtime-classes/debug/instant-run.jar"
+        jumboMode="true"
+        revision="23.0.3"
+        sha1="2d0c33768938e088022fd0c6a29e3efe93b7dd06">
+        <dex dex="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/pre-dexed/debug/instant-run_38ebacfa002df7b01451705a6c167c272f84e7eb.jar" />
+    </item>
+    <item
+        jar="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/exploded-aar/com.android.support/support-v4/23.3.0/jars/libs/internal_impl-23.3.0.jar"
+        jumboMode="true"
+        revision="23.0.3"
+        sha1="4da5a4d697d32497c6f85567a5112e62fdfd0676">
+        <dex dex="/Users/pascalbodin/Dev/PrimeZone2016/client/android/pocs/SlidingTabsBasic/Application/build/intermediates/pre-dexed/debug/internal_impl-23.3.0_f0acc13ac2b0c9b241d8db6c1112bc3fcb5a8995.jar" />
+    </item>
+
+</items>

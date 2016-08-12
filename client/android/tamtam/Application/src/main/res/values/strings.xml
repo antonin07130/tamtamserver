@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sample_hide_log">Cacher log</string>
+    <string name="sample_show_log">Montrer log</string>
+    <string name="tab_my_things">Mes trucs</string>
+    <string name="tab_around_me">Autour de moi</string>
+    <string name="tab_tracked_things">Trucs traqués</string>
+</resources>

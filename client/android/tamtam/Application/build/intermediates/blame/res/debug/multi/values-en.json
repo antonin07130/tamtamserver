@@ -1,0 +1,98 @@
+[
+    {
+        "outputFile": "/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/build/intermediates/res/merged/debug/values-en/values-en.xml",
+        "map": [
+            {
+                "to": {
+                    "startLine": 2,
+                    "startColumn": 4,
+                    "startOffset": 55,
+                    "endColumn": 43,
+                    "endOffset": 94
+                },
+                "from": {
+                    "file": "/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/src/main/res/values-en/strings.xml"
+                }
+            },
+            {
+                "to": {
+                    "startLine": 3,
+                    "startColumn": 4,
+                    "startOffset": 99,
+                    "endColumn": 78,
+                    "endOffset": 173
+                },
+                "from": {
+                    "file": "/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/src/main/res/values-en/strings.xml",
+                    "position": {
+                        "startLine": 3,
+                        "startColumn": 4,
+                        "startOffset": 99,
+                        "endColumn": 78,
+                        "endOffset": 173
+                    }
+                }
+            },
+            {
+                "to": {
+                    "startLine": 4,
+                    "startColumn": 4,
+                    "startOffset": 178,
+                    "endColumn": 52,
+                    "endOffset": 226
+                },
+                "from": {
+                    "file": "/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/src/main/res/values-en/strings.xml"
+                }
+            },
+            {
+                "to": {
+                    "startLine": 5,
+                    "startColumn": 4,
+                    "startOffset": 231,
+                    "endColumn": 52,
+                    "endOffset": 279
+                },
+                "from": {
+                    "file": "/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/src/main/res/values-en/strings.xml"
+                }
+            },
+            {
+                "to": {
+                    "startLine": 6,
+                    "startColumn": 4,
+                    "startOffset": 284,
+                    "endColumn": 51,
+                    "endOffset": 331
+                },
+                "from": {
+                    "file": "/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/src/main/res/values-en/strings.xml"
+                }
+            },
+            {
+                "to": {
+                    "startLine": 7,
+                    "startColumn": 4,
+                    "startOffset": 336,
+                    "endColumn": 51,
+                    "endOffset": 383
+                },
+                "from": {
+                    "file": "/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/src/main/res/values-en/strings.xml"
+                }
+            },
+            {
+                "to": {
+                    "startLine": 8,
+                    "startColumn": 4,
+                    "startOffset": 388,
+                    "endColumn": 61,
+                    "endOffset": 445
+                },
+                "from": {
+                    "file": "/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/src/main/res/values-en/strings.xml"
+                }
+            }
+        ]
+    }
+]
