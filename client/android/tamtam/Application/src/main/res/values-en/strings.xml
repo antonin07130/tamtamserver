@@ -7,4 +7,5 @@
     <string name="tab_my_things">My things</string>
     <string name="tab_around_me">Around me</string>
     <string name="tab_tracked_things">Tracked things</string>
+    <string name="tab_log">Log</string>
 </resources>

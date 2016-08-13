@@ -17,10 +17,14 @@
 package com.example.android.slidingtabsbasic;
 
 import com.example.android.common.logger.Log;
+import com.example.android.common.logger.LogFragment;
+import com.example.android.common.logger.LogWrapper;
+import com.example.android.common.logger.MessageOnlyLogFilter;
 import com.example.android.common.view.SlidingTabLayout;
 
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.view.LayoutInflater;
@@ -35,9 +39,12 @@ import android.widget.TextView;
  */
 public class SlidingTabsBasicFragment extends Fragment {
 
-    static final String LOG_TAG = "SlidingTabsBasicFragment";
+    private final static String LOG_TAG = "SlidingTabsBasicFragment";
+    private final static int NB_OF_TABS = 4;
 
-    private static String [] mTabTitles = new String [3];
+    private String[] mTabTitles = new String[NB_OF_TABS];
+    private View[] mTabViews = new View[NB_OF_TABS];
+    private boolean[] mViewAdded = new boolean[NB_OF_TABS];
 
     /**
      * A custom {@link ViewPager} title strip which looks much like Tabs present in Android v4.0 and
@@ -57,9 +64,23 @@ public class SlidingTabsBasicFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
+
         mTabTitles[0] = getResources().getString(R.string.tab_my_things);
         mTabTitles[1] = getResources().getString(R.string.tab_around_me);
         mTabTitles[2] = getResources().getString(R.string.tab_tracked_things);
+        mTabTitles[3] = getResources().getString(R.string.tab_log);
+
+        View view;
+        for (int i = 0; i < 3; i++) {
+            view = getActivity().getLayoutInflater().inflate(R.layout.pager_item,
+                    container, false);
+            mTabViews[i] = view;
+            mViewAdded[i] = false;
+        }
+        mTabViews[3] = getActivity().getLayoutInflater().inflate(R.layout.pager_log,
+                container, false);
+        mViewAdded[3] = false;
+
         return inflater.inflate(R.layout.fragment_sample, container, false);
     }
 
@@ -68,7 +89,7 @@ public class SlidingTabsBasicFragment extends Fragment {
      * This is called after the {@link #onCreateView(LayoutInflater, ViewGroup, Bundle)} has finished.
      * Here we can pick out the {@link View}s we need to configure from the content view.
      *
-     * We set the {@link ViewPager}'s adapter to be an instance of {@link SamplePagerAdapter}. The
+     * We set the {@link ViewPager}'s adapter to be an instance of {@link AppPagerAdapter}. The
      * {@link SlidingTabLayout} is then given the {@link ViewPager} so that it can populate itself.
      *
      * @param view View created in {@link #onCreateView(LayoutInflater, ViewGroup, Bundle)}
@@ -78,7 +99,7 @@ public class SlidingTabsBasicFragment extends Fragment {
         // BEGIN_INCLUDE (setup_viewpager)
         // Get the ViewPager and set it's PagerAdapter so that it can display items
         mViewPager = (ViewPager) view.findViewById(R.id.viewpager);
-        mViewPager.setAdapter(new SamplePagerAdapter());
+        mViewPager.setAdapter(new AppPagerAdapter());
         // END_INCLUDE (setup_viewpager)
 
         // BEGIN_INCLUDE (setup_slidingtablayout)
@@ -96,7 +117,7 @@ public class SlidingTabsBasicFragment extends Fragment {
      * this class is the {@link #getPageTitle(int)} method which controls what is displayed in the
      * {@link SlidingTabLayout}.
      */
-    class SamplePagerAdapter extends PagerAdapter {
+    class AppPagerAdapter extends PagerAdapter {
 
         /**
          * @return the number of pages to display
@@ -104,7 +125,7 @@ public class SlidingTabsBasicFragment extends Fragment {
         @Override
         public int getCount() {
             //return 10;
-            return 3;
+            return NB_OF_TABS;
         }
 
         /**
@@ -137,17 +158,24 @@ public class SlidingTabsBasicFragment extends Fragment {
          */
         @Override
         public Object instantiateItem(ViewGroup container, int position) {
-            // Inflate a new layout from our resources
-            View view = getActivity().getLayoutInflater().inflate(R.layout.pager_item,
-                    container, false);
-            // Add the newly created View to the ViewPager
-            container.addView(view);
-
-            // Retrieve a TextView from the inflated View, and update it's text
-            TextView title = (TextView) view.findViewById(R.id.item_title);
-            title.setText(String.valueOf(position + 1));
-
             Log.i(LOG_TAG, "instantiateItem() [position: " + position + "]");
+            if (mViewAdded[position]) {
+                return mTabViews[position];
+            }
+            // Inflate a new layout from our resources
+            mViewAdded[position] = true;
+            View view = mTabViews[position];
+            if (position < 3) {
+                // Add the newly created View to the ViewPager
+                container.addView(view);
+                // Retrieve a TextView from the inflated View, and update it's text
+                TextView title = (TextView) view.findViewById(R.id.item_title);
+                title.setText(String.valueOf(position + 1));
+                Log.i(LOG_TAG, "instantiateItem() [position: " + position + "]");
+            } else {
+                container.addView(view);
+                initializeLogging();
+            }
 
             // Return the View
             return view;
@@ -159,9 +187,30 @@ public class SlidingTabsBasicFragment extends Fragment {
          */
         @Override
         public void destroyItem(ViewGroup container, int position, Object object) {
-            container.removeView((View) object);
+//            container.removeView((View) object);
             Log.i(LOG_TAG, "destroyItem() [position: " + position + "]");
         }
 
     }
+
+    /** Create a chain of targets that will receive log data */
+    private void initializeLogging() {
+        // Wraps Android's native log framework.
+        LogWrapper logWrapper = new LogWrapper();
+        // Using Log, front-end to the logging chain, emulates android.util.log method signatures.
+        Log.setLogNode(logWrapper);
+
+        // Filter strips out everything except the message text.
+        MessageOnlyLogFilter msgFilter = new MessageOnlyLogFilter();
+        logWrapper.setNext(msgFilter);
+
+        // On screen logging via a fragment with a TextView.
+        LogFragment logFragment = (LogFragment) getActivity().getSupportFragmentManager()
+                .findFragmentById(R.id.log_fragment);
+        msgFilter.setNext(logFragment.getLogView());
+
+
+        Log.i(LOG_TAG, "Ready");
+    }
+
 }

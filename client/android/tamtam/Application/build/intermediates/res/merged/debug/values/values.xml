@@ -20,6 +20,7 @@
     <string name="sample_hide_log">Cacher log</string>
     <string name="sample_show_log">Montrer log</string>
     <string name="tab_around_me">Autour de moi</string>
+    <string name="tab_log">Traces</string>
     <string name="tab_my_things">Mes trucs</string>
     <string name="tab_tracked_things">Trucs traqués</string>
     <style name="AppTheme" parent="Theme.Sample"/>

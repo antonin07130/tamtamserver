@@ -4,7 +4,7 @@
     api-level="19"
     density="xhdpi"
     format="7"
-    timestamp="275936108416812"
+    timestamp="308514059787496"
     token="1040161020168939322" >
 
     <task
@@ -24,7 +24,7 @@
         location="/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/build/outputs/apk/Application-debug.apk"
         type="MAIN" />
 
-    <build timestamp="275936108416812" >
+    <build timestamp="308514059787496" >
         <artifact
             location="/Users/pascalbodin/Dev/PrimeZone2016/client/android/tamtam/Application/build/outputs/apk/Application-debug.apk"
             type="MAIN" />

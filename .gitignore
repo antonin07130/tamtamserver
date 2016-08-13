@@ -1,4 +1,4 @@
-# Allows to ignore .git folder in Volly tree.
+# Allows to ignore .git folder in Volley tree.
 .git/
 
 # Server #
@@ -17,3 +17,8 @@ dist
 # Idea project files
 .idea/
 
+# Client #
+##########
+
+.gradle/
+build/

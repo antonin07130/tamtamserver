@@ -25,9 +25,9 @@ import com.example.android.common.logger.LogWrapper;
 /**
  * Base launcher activity, to handle most of the common plumbing for samples.
  */
-public class SampleActivityBase extends FragmentActivity {
+public class MainActivityBase extends FragmentActivity {
 
-    public static final String TAG = "SampleActivityBase";
+    public static final String TAG = "MainActivityBase";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
