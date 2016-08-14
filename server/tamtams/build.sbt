@@ -18,7 +18,10 @@ libraryDependencies ++= Seq(
   "org.reactivemongo" %% "play2-reactivemongo" % "0.11.14"
 )
 
-resolvers += "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
+resolvers ++= Seq(
+  Resolver.url("Typesafe Ivy releases", url("https://repo.typesafe.com/typesafe/ivy-releases"))(Resolver.ivyStylePatterns),
+  "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
+)
 
 // is this really useful? taken from reactivemongo
 scalacOptions in ThisBuild ++= Seq("-feature", "-language:postfixOps")
