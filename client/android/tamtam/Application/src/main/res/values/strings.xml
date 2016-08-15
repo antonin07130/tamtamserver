@@ -6,4 +6,5 @@
     <string name="tab_around_me">Autour de moi</string>
     <string name="tab_tracked_things">Trucs traqués</string>
     <string name="tab_log">Traces</string>
+    <string name="log_message">message de trace</string>
 </resources>

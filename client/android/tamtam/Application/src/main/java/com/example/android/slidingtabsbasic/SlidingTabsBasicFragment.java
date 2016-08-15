@@ -16,20 +16,18 @@
 
 package com.example.android.slidingtabsbasic;
 
-import com.example.android.common.logger.Log;
-import com.example.android.common.logger.LogFragment;
-import com.example.android.common.logger.LogWrapper;
-import com.example.android.common.logger.MessageOnlyLogFilter;
 import com.example.android.common.view.SlidingTabLayout;
 
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentTransaction;
 import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.TextView;
 
 /**
@@ -39,12 +37,17 @@ import android.widget.TextView;
  */
 public class SlidingTabsBasicFragment extends Fragment {
 
-    private final static String LOG_TAG = "SlidingTabsBasicFragment";
+    private final static String LOG_TAG = "SlidingTabs";
     private final static int NB_OF_TABS = 4;
 
     private String[] mTabTitles = new String[NB_OF_TABS];
     private View[] mTabViews = new View[NB_OF_TABS];
     private boolean[] mViewAdded = new boolean[NB_OF_TABS];
+
+    /** For log tab. */
+    private final static int LOG_MAX_NB = 128;
+    /** This array adapter contains log messages. */
+    private ArrayAdapter<String> mLog;
 
     /**
      * A custom {@link ViewPager} title strip which looks much like Tabs present in Android v4.0 and
@@ -70,11 +73,9 @@ public class SlidingTabsBasicFragment extends Fragment {
         mTabTitles[2] = getResources().getString(R.string.tab_tracked_things);
         mTabTitles[3] = getResources().getString(R.string.tab_log);
 
-        View view;
         for (int i = 0; i < 3; i++) {
-            view = getActivity().getLayoutInflater().inflate(R.layout.pager_item,
+            mTabViews[i] = getActivity().getLayoutInflater().inflate(R.layout.pager_item,
                     container, false);
-            mTabViews[i] = view;
             mViewAdded[i] = false;
         }
         mTabViews[3] = getActivity().getLayoutInflater().inflate(R.layout.pager_log,
@@ -173,8 +174,18 @@ public class SlidingTabsBasicFragment extends Fragment {
                 title.setText(String.valueOf(position + 1));
                 Log.i(LOG_TAG, "instantiateItem() [position: " + position + "]");
             } else {
+                // Add log view.
                 container.addView(view);
-                initializeLogging();
+                // Create array adapter.
+                mLog = new ArrayAdapter<String>(getActivity(), R.layout.pager_log_item,
+                        R.id.pager_log_tv);
+                // And bind it to the list view.
+                // Warning: the list view seems to really need android:id/list as id...
+                ListView listView = (ListView) getActivity().findViewById(android.R.id.list);
+                listView.setAdapter(mLog);
+                // Configure log class.
+                AppLog.setFragment(SlidingTabsBasicFragment.this);
+                AppLog.d(LOG_TAG, "Ready");
             }
 
             // Return the View
@@ -193,24 +204,22 @@ public class SlidingTabsBasicFragment extends Fragment {
 
     }
 
-    /** Create a chain of targets that will receive log data */
-    private void initializeLogging() {
-        // Wraps Android's native log framework.
-        LogWrapper logWrapper = new LogWrapper();
-        // Using Log, front-end to the logging chain, emulates android.util.log method signatures.
-        Log.setLogNode(logWrapper);
+    /**
+     * Adds a new log message to the messages being displayed. If max number of
+     * messages is reached, the oldest one is removed. The new message is added at
+     * the top of the message list.
+     *
+     * @param trace
+     */
+    public void addLog(String trace) {
 
-        // Filter strips out everything except the message text.
-        MessageOnlyLogFilter msgFilter = new MessageOnlyLogFilter();
-        logWrapper.setNext(msgFilter);
+        mLog.insert(trace, 0);
+        int tracesNb = mLog.getCount();
+        if (tracesNb > LOG_MAX_NB) {
+            String traceToRemove = mLog.getItem(tracesNb - 1);
+            mLog.remove(traceToRemove);
+        }
 
-        // On screen logging via a fragment with a TextView.
-        LogFragment logFragment = (LogFragment) getActivity().getSupportFragmentManager()
-                .findFragmentById(R.id.log_fragment);
-        msgFilter.setNext(logFragment.getLogView());
-
-
-        Log.i(LOG_TAG, "Ready");
     }
 
 }
