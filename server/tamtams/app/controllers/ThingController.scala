@@ -11,8 +11,10 @@ import logic.JsonConversion._
 import logic.Thing
 import logic.ThingsGenerator
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
+import play.modules.reactivemongo.json._
+import reactivemongo.api.collections.GenericQueryBuilder
 import reactivemongo.api.commands.WriteResult
-import reactivemongo.bson.BSONDocument
+import reactivemongo.core.actors.Exceptions._
 import reactivemongo.play.json.collection.JSONCollection
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,43 +31,46 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   extends Controller with MongoController with ReactiveMongoComponents {
 
 
-
   // connect to local database using [[database]] and
   // to TamtamThings collection as a [[reactivemongo.api.Collection]]
-  val thingsCollection : Future[JSONCollection] =
+  def thingsJSONCollection : Future[JSONCollection] =
     database.map( // once future database is completed :
       connectedDb => connectedDb.collection[JSONCollection]("TamtamThings")
     )
+
+  // register a callback on connection error :
+  thingsJSONCollection.onFailure{
+    case _ => Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+  }
+
+  // register a callback on connection OK :
+  thingsJSONCollection.onSuccess{
+    case _ => Logger.info(s" tamtams : MongoDb connection OK")
+  }
 
   // todo : put this code in a function taking a list of anything having an id and returning json or notfound
   def getThing(thingId: String) = Action.async {
     request => {
 
-      val findThingQuery = BSONDocument
-      // todo  :define find query
+      val findThingQuery: JsObject = Json.obj("id" -> thingId)
+      val futureFindThing: Future[Option[Thing]] =
+        thingsJSONCollection.flatMap(jscol => jscol.find(findThingQuery).one[Thing])
 
-      val dbWriteResult : Future[WriteResult] = for {
-        resolvedCollection <- thingsCollection
-        lastError <- resolvedCollection.find()
-      }yield ???
-???
-
-
-
-    /*
-    val foundThing: Option[Thing] = ThingsGenerator.thingSeq.find(thing => thing.id == thingId)
-    if (foundThing.isDefined) {
-      val jsonThing = Json.toJson(foundThing.get)
-      val jsonString = jsonThing.toString
-      Logger.info(s"tamtams : Thing -> JSON : ${jsonString} ")
-      Result(
-        header = ResponseHeader(OK, Map.empty),
-        body = HttpEntity.Strict(ByteString(jsonString), Some("application/json"))
-      )
-    } else {
-      Logger.info(s"tamtams : ${thingId} Not found ")
-      NotFound
-    }*/
+      futureFindThing.map{
+        case Some(thing) => {
+          val jsonThing: JsValue = Json.toJson(thing)
+          Logger.info(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonThing)}")
+          Ok(Json.toJson(jsonThing))
+        }
+        case None => {
+          Logger.info(s"tamtams : thing ${thingId} Not found ")
+          NotFound
+        }
+      } recover { // deal with exceptions related to database connection
+        case PrimaryUnavailableException => {Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+          InternalServerError
+        }
+      }
     }
   }
 

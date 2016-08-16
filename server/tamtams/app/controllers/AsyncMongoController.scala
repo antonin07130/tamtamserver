@@ -34,7 +34,7 @@ class AsyncMongoController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
   val futureTestCollection : Future[JSONCollection] =
     database.map( // once future database is completed :
-      connectedDb => connectedDb.collection[JSONCollection]("testObjectsCollection")
+      connectedDb => connectedDb.collection[JSONCollection]("TamtamThings")
     )
 
   def createThingAsync(thingId: String) = Action.async(parse.json[Thing]) {
