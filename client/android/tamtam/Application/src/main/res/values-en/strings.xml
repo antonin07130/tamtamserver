@@ -2,11 +2,10 @@
 <resources>
     <string name="app_name">TamTam</string>
     <string name="intro_message">[Top hand page icons to be put here]</string>
-    <string name="sample_hide_log">Hide log</string>
-    <string name="sample_show_log">Show Log</string>
     <string name="tab_my_things">My things</string>
     <string name="tab_around_me">Around me</string>
     <string name="tab_tracked_things">Tracked things</string>
     <string name="tab_log">Log</string>
     <string name="log_message">log message</string>
+    <string name="options_show_log">Log</string>
 </resources>

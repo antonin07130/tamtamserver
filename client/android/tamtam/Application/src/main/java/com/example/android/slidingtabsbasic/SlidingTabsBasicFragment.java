@@ -30,6 +30,8 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import java.util.ArrayList;
+
 /**
  * A basic sample which shows how to use {@link com.example.android.common.view.SlidingTabLayout}
  * to display a custom {@link ViewPager} title strip which gives continuous feedback to the user
@@ -46,7 +48,6 @@ public class SlidingTabsBasicFragment extends Fragment {
 
     /** For log tab. */
     private final static int LOG_MAX_NB = 128;
-    /** This array adapter contains log messages. */
     private ArrayAdapter<String> mLog;
 
     /**
@@ -159,7 +160,7 @@ public class SlidingTabsBasicFragment extends Fragment {
          */
         @Override
         public Object instantiateItem(ViewGroup container, int position) {
-            Log.i(LOG_TAG, "instantiateItem() [position: " + position + "]");
+            AppLog.d(LOG_TAG, "instantiateItem() [position: " + position + "]");
             if (mViewAdded[position]) {
                 return mTabViews[position];
             }
@@ -176,12 +177,11 @@ public class SlidingTabsBasicFragment extends Fragment {
             } else {
                 // Add log view.
                 container.addView(view);
-                // Create array adapter.
-                mLog = new ArrayAdapter<String>(getActivity(), R.layout.pager_log_item,
-                        R.id.pager_log_tv);
+                // Create array adapte for log display.
+                mLog = new ArrayAdapter<String>(getActivity(),
+                        R.layout.pager_log_item);
                 // And bind it to the list view.
-                // Warning: the list view seems to really need android:id/list as id...
-                ListView listView = (ListView) getActivity().findViewById(android.R.id.list);
+                ListView listView = (ListView) getActivity().findViewById(R.id.pager_log_lv);
                 listView.setAdapter(mLog);
                 // Configure log class.
                 AppLog.setFragment(SlidingTabsBasicFragment.this);
@@ -199,7 +199,7 @@ public class SlidingTabsBasicFragment extends Fragment {
         @Override
         public void destroyItem(ViewGroup container, int position, Object object) {
 //            container.removeView((View) object);
-            Log.i(LOG_TAG, "destroyItem() [position: " + position + "]");
+            AppLog.d(LOG_TAG, "destroyItem() [position: " + position + "]");
         }
 
     }
@@ -219,6 +219,8 @@ public class SlidingTabsBasicFragment extends Fragment {
             String traceToRemove = mLog.getItem(tracesNb - 1);
             mLog.remove(traceToRemove);
         }
+        ViewPager viewPager = (ViewPager) getActivity().findViewById(R.id.viewpager);
+        viewPager.invalidate();
 
     }
 

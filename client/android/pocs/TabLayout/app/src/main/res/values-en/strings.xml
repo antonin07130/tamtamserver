@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tabs</string>
+    <string name="tab1_title">Tab 1</string>
+    <string name="tab2_title">Tab 2</string>
+    <string name="tab3_title">Tab 3</string>
+</resources>

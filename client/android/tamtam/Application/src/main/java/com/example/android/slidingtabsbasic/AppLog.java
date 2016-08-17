@@ -2,6 +2,9 @@ package com.example.android.slidingtabsbasic;
 
 import android.util.Log;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+
 /**
  * Created by pascalbodin on 15/08/2016.
  */
@@ -9,6 +12,7 @@ public class AppLog {
 
     private final static String DASH = " - ";
     private static SlidingTabsBasicFragment mFragment = null;
+    private final static SimpleDateFormat LOG_TIME_FORMAT = new SimpleDateFormat("HH:mm:ss");
 
     public static void setFragment(SlidingTabsBasicFragment fragment) {
 
@@ -30,7 +34,8 @@ public class AppLog {
             return;
         }
         StringBuilder logMsg = new StringBuilder();
-        logMsg.append(tag).append(DASH).append(msg);
+        String formattedDate = LOG_TIME_FORMAT.format(Calendar.getInstance().getTime());
+        logMsg.append(formattedDate).append(DASH).append(tag).append(DASH).append(msg);
         mFragment.addLog(logMsg.toString());
 
     }
