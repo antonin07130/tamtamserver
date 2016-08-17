@@ -5,31 +5,24 @@
 # An example controller showing a sample home page
 GET     /sync                            controllers.HomeController.index
 
-# returns the list of Users
-GET     /sync/users                       controllers.UserController.getUsers
+###### user related routes ######
 
 # returns a User
-GET     /sync/users/:userId               controllers.UserController.getUser(userId: String)
+GET     /users/:userId               controllers.UserController.getUser(userId: String)
 
-# returns a Thing
-GET     /sync/things/:thingId             controllers.ThingController.getThing(thingId: String)
-
-# TODO store a thing instead of printing it
-# print a Thing
-PUT     /sync/things/:thingId             controllers.ThingController.putThing(thingId: String)
-
-# record a new Thing to a mongoDb Db (mongoDb server running on localhost)
-PUT     /async/things/:thingId            controllers.AsyncMongoController.createThingAsync(thingId: String)
+# insert a new User in the database
+PUT     /users/:userId               controllers.UserController.putUser(userId: String)
 
 
-# TODO returns the list of Things
-#GET     /things                     controllers.HomeController.getThings
+###### Thing related routes ######
 
-# TODO store a Thing
-#PUT     /things                     controllers.HomeController.putThing(thingId: String)
+# returns a Thing from database
+GET     /things/:thingId             controllers.ThingController.getThing(thingId: String)
 
-# TODO returns a list of Things near a latitude/longitude
-GET     /things/near/:lat/:lon       controllers.HomeController.getThingsNear(lat: Double, lon : Double)
+# insert a new Thing in the database
+PUT     /sync/things/:thingId        controllers.ThingController.putThing(thingId: String)
+
+
 
 
 # Map static resources from the /public folder to the /assets URL path

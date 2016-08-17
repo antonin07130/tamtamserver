@@ -28,8 +28,6 @@ object JsonConversion {
       (JsPath \ "lon").write[Double]
     )(unlift(Position.unapply))
 
-
-
   /**
     * This helper function helps [[play.api.libs.json]]
     * converting [[Price]] to Json
@@ -38,7 +36,6 @@ object JsonConversion {
     (JsPath \ "currency").write[Short] and
       (JsPath \ "price").write[Float]
     )(unlift(Price.unapply))
-
 
   /**
     * This helper function helps [[play.api.libs.json]]
@@ -53,6 +50,16 @@ object JsonConversion {
       (JsPath \ "stuck").write[Boolean]
     )(unlift(Thing.unapply))
 
+
+
+  /**
+    * JSON reader and validation for [[User]]
+    */
+  implicit val userReads: Reads[User] = (
+    (JsPath \ "id").read[String] and
+      (JsPath \ "name").read[String] and
+      (JsPath \ "age").read[Short]
+    )(User.apply _)
 
   /**
     * JSON reader and validation for [[Position]]

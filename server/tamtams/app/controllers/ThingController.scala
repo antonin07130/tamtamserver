@@ -22,9 +22,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
-  * This controller creates Actions to handle HTTP requests
-  * related to [[Thing]]
-  * it connects to a MongoDb database to serve requests
+  * This controller creates asynchronous Actions to handle HTTP requests
+  * related to [[Thing]].
+  * It connects to a MongoDb database to serve requests
+  * using [[ReactiveMongoApi]].
   */
 @Singleton
 class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
@@ -32,26 +33,38 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   extends Controller with MongoController with ReactiveMongoComponents {
 
 
-  // connect to local database using [[database]] and
-  // to TamtamThings collection as a [[reactivemongo.api.Collection]]
-  // this is a def not a val because it must be re-evaluated at each call
-  //
+  /**
+    * Connects to local database using [[database]] and
+    * to TamtamThings collection as a [[reactivemongo.api.Collection]]
+    * this is a def not a val because it must be re-evaluated at each call
+    */
+
   def thingsJSONCollection : Future[JSONCollection] =
     database.map( // once future database is completed :
       connectedDb => connectedDb.collection[JSONCollection]("TamtamThings")
     )
-
   // register a callback on connection error :
   thingsJSONCollection.onFailure{
     case _ => Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
   }
-
   // register a callback on connection OK :
   thingsJSONCollection.onSuccess{
     case _ => Logger.info(s" tamtams : MongoDb connection OK")
   }
 
+
   // todo : put this code in a function taking a list of anything having an id and returning json or notfound
+  /**
+    * Create an async Action to return a json object response
+    * containing the [[Thing]] selected by userId.
+    * @param thingId id of the thing to be retrieved
+    * @return if thingId exists, Ok status code and a Thing encoded as Json
+    *           in the body
+    *         else if thingId does not exist NotFound status code
+    *         else if defaut database [[database]] is not available,
+    *           an InternalServerError status code
+    *         else an exception I guess
+    */
   def getThing(thingId: String) = Action.async {
     request => {
 
@@ -63,14 +76,15 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
         case Some(thing) => {
           val jsonThing: JsValue = Json.toJson(thing)
           Logger.info(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonThing)}")
-          Ok(Json.toJson(jsonThing))
+          Ok(Json.toJson(jsonThing))// todo : check if necessary to reencode as json ?
         }
         case None => {
           Logger.info(s"tamtams : thing ${thingId} Not found ")
           NotFound
         }
       } recover { // deal with exceptions related to database connection
-        case PrimaryUnavailableException => {Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+        case PrimaryUnavailableException => {
+          Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
           InternalServerError
         }
       }
@@ -78,18 +92,19 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   }
 
 
-  // TODO : test and return URI with created status
   /**
-    * As of today this action can take a Json as a parameter
-    * and parse it into a [[Thing]] object.
-    * It answers with a bad request when unhappy
-    *
+    * This async action reads a request body
+    * and parses it into a [[Thing]] object.
+    * The [[Thing]] object is inserted in the database.
     * @param thingId Id of the thing to be created
     *                This Id is also part of the Json (Thing/id)
+    *                if these ids are not equal, the server answers
+    *                with a BadRequest answer.
     * @return
     */
   def putThing(thingId: String) = Action.async(parse.json[Thing]) {
     request => {
+      if (thingId == request.body.id) {
       Logger.info(s" tamtams : requesting insertion of Thing : ${request.body}")
 
       // ask to write our Thing to the database
@@ -99,7 +114,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       // stick callbacks to write results to send an appropriate answer
       futureWriteThingResult.map{ okResult =>
         Logger.info(s" tamtams : sucessfull insertion to MongoDb ${okResult}")
-        Created(request.host+request.uri)
+        Created.withHeaders((LOCATION, request.host + request.uri))
       } recover { // deal with exceptions related to database connection
         case err: CommandError if err.code.contains(11000) => {
           Logger.error(s" tamtams : MongoDb connection error ${err.getMessage()}")
@@ -110,7 +125,12 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
           InternalServerError
         }
       }
-
+      }
+      else
+        {
+          Logger.info(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.id}")
+          Future.successful(BadRequest)
+        }
     }
   }
 

@@ -3,7 +3,6 @@ package logic
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-// todo : object or class ? http://stackoverflow.com/questions/38668171/scala-define-implicit-functions-in-an-object-or-in-a-class
 /**
   * Utility class defining implicit conversion functions
   * for [[Thing]] and [[User]] used by [[play.api.libs.json.JsObject]]
