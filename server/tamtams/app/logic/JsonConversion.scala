@@ -8,47 +8,30 @@ import play.api.libs.functional.syntax._
   * for [[Thing]] and [[User]] used by [[play.api.libs.json]]
   */
 object JsonConversion {
-
+  
   /**
     * This helper function helps [[play.api.libs.json]]
     * converting [[User]] to Json
     */
-  implicit val userWrites: Writes[User] = (
-    (JsPath \ "id").write[String] and
-      (JsPath \ "name").write[String] and
-      (JsPath \ "age").write[Short]
-    )(unlift(User.unapply))
+  implicit val userWrites = Json.writes[User]
 
   /**
     * This helper function helps [[play.api.libs.json]]
     * converting [[Position]] to Json
     */
-  implicit val locationWrites: Writes[Position] = (
-    (JsPath \ "lat").write[Double] and
-      (JsPath \ "lon").write[Double]
-    )(unlift(Position.unapply))
+  implicit val positionWrites = Json.writes[Position]
 
   /**
     * This helper function helps [[play.api.libs.json]]
     * converting [[Price]] to Json
     */
-  implicit val priceWrites: Writes[Price] = (
-    (JsPath \ "currency").write[Short] and
-      (JsPath \ "price").write[Float]
-    )(unlift(Price.unapply))
+  implicit val priceWrites= Json.writes[Price]
 
   /**
     * This helper function helps [[play.api.libs.json]]
     * converting [[Thing]] to Json
     */
-  implicit val thingWrites: Writes[Thing] = (
-    (JsPath \ "id").write[String] and
-      (JsPath \ "pict").write[String] and
-      (JsPath \ "description").write[String] and
-      (JsPath \ "price").write[Price] and
-      (JsPath \ "position").write[Position] and
-      (JsPath \ "stuck").write[Boolean]
-    )(unlift(Thing.unapply))
+  implicit val thingWrites = Json.writes[Thing]
 
 
 
