@@ -1,4 +1,4 @@
-package logic
+package models
 import java.util.Currency
 
 import scala._

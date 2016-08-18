@@ -20,7 +20,7 @@ PUT     /users/:userId               controllers.UserController.putUser(userId: 
 GET     /things/:thingId             controllers.ThingController.getThing(thingId: String)
 
 # insert a new Thing in the database
-PUT     /sync/things/:thingId        controllers.ThingController.putThing(thingId: String)
+PUT     /things/:thingId        controllers.ThingController.putThing(thingId: String)
 
 
 

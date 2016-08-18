@@ -7,10 +7,8 @@ import play.api.Logger
 import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.mvc._
-//import logic.JsonOConversion._
-import logic.JsonConversion._
-import logic.Thing
-import logic.ThingsGenerator
+import utils.ThingJsonConversion._
+import models.Thing
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
 import play.modules.reactivemongo.json._
 import reactivemongo.api.collections.GenericQueryBuilder
@@ -45,11 +43,11 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     )
   // register a callback on connection error :
   thingsJSONCollection.onFailure{
-    case _ => Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+    case _ => Logger.error(s" tamtams : MongoDb connection for {$this} error ${PrimaryUnavailableException.message}")
   }
   // register a callback on connection OK :
   thingsJSONCollection.onSuccess{
-    case _ => Logger.info(s" tamtams : MongoDb connection OK")
+    case _ => Logger.info(s" tamtams : MongoDb connection for {$this} OK")
   }
 
 

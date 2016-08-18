@@ -4,8 +4,8 @@ import javax.inject._
 
 import play.api.Logger
 import play.api.mvc._
-import logic.JsonConversion._
-import logic.User
+import models.User
+import utils.UserJsonConversion._
 import play.api.libs.json._
 import play.libs.Json._
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
@@ -38,11 +38,11 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   )
   // register a callback on connection error :
   usersJSONCollection.onFailure{
-    case _ => Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+    case _ => Logger.error(s" tamtams : MongoDb connection for {$this} error ${PrimaryUnavailableException.message}")
   }
   // register a callback on connection OK :
   usersJSONCollection.onSuccess{
-    case _ => Logger.info(s" tamtams : MongoDb connection OK")
+    case _ => Logger.info(s" tamtams : MongoDb connection for {$this} OK")
   }
 
 
