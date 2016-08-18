@@ -1,6 +1,8 @@
 <resources>
-    <string name="app_name">Onglets</string>
-    <string name="tab1_title">Onglet 1</string>
-    <string name="tab2_title">Onglet 2</string>
-    <string name="tab3_title">Onglet 3</string>
+    <string name="app_name">TamTam</string>
+    <string name="tab1_title">Mes trucs</string>
+    <string name="tab2_title">Autour de moi</string>
+    <string name="tab3_title">Trucs traqués</string>
+    <string name="log_message">Message de trace</string>
+    <string name="tab_log">Traces</string>
 </resources>
