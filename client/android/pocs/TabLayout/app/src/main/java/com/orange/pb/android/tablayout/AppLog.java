@@ -1,8 +1,12 @@
-package com.example.android.slidingtabsbasic;
+package com.orange.pb.android.tablayout;
 
+/**
+ * Created by pascalb on 8/18/16.
+ */
 import android.util.Log;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 
 /**
@@ -10,11 +14,13 @@ import java.util.Calendar;
  */
 public class AppLog {
 
+    private final static int LOG_MAX_NB = 128;
     private final static String DASH = " - ";
-    private static SlidingTabsBasicFragment mFragment = null;
+    private static ArrayList<String> mLogMessages = new ArrayList<String>();
+    private static LogFragment mFragment = null;
     private final static SimpleDateFormat LOG_TIME_FORMAT = new SimpleDateFormat("HH:mm:ss");
 
-    public static void setFragment(SlidingTabsBasicFragment fragment) {
+    public static void setFragment(LogFragment fragment) {
 
         mFragment = fragment;
 
@@ -36,7 +42,8 @@ public class AppLog {
         StringBuilder logMsg = new StringBuilder();
         String formattedDate = LOG_TIME_FORMAT.format(Calendar.getInstance().getTime());
         logMsg.append(formattedDate).append(DASH).append(tag).append(DASH).append(msg);
-        mFragment.addLog(logMsg.toString());
+        mLogMessages.add(0, logMsg.toString());
+        mFragment.displayLog(mLogMessages);
 
     }
 }
