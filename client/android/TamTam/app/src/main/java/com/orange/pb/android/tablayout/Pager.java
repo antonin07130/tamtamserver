@@ -17,7 +17,6 @@ public class Pager extends FragmentPagerAdapter {
     private String[] mTabTitles;
     private int mTabCount;
     private Fragment[] mFragments;
-    private boolean[] mFragmentCreated;
 
     public Pager(FragmentManager fm, String[] tabTitles) {
 
@@ -25,10 +24,6 @@ public class Pager extends FragmentPagerAdapter {
         mTabTitles = tabTitles;
         mTabCount = tabTitles.length;
         mFragments = new Fragment[mTabCount];
-        mFragmentCreated = new boolean[mTabCount];
-        for (int i = 0; i < mTabCount; i++) {
-            mFragmentCreated[i] = false;
-        }
 
     }
 
@@ -37,38 +32,24 @@ public class Pager extends FragmentPagerAdapter {
         return mTabTitles[position];
     }
 
+    /**
+     * Must be called before getItem() is called for the first time.
+     */
+    public void createFragments() {
+
+        mFragments[0] = new Tab1();
+        mFragments[1] = new Tab2();
+        mFragments[2] = new Tab3();
+        mFragments[3] = new LogFragment();
+    }
+
     @Override
     public Fragment getItem(int position) {
 
-        AppLog.d(LOG_TAG, "getItem() - " + position);
-        switch(position) {
-            case 0:
-                if (!mFragmentCreated[0]) {
-                    mFragments[0] = new Tab1();
-                    mFragmentCreated[0] = true;
-                }
-                return mFragments[0];
-            case 1:
-                if (!mFragmentCreated[1]) {
-                    mFragments[1] = new Tab2();
-                    mFragmentCreated[1] = true;
-                }
-                return mFragments[1];
-            case 2:
-                if (!mFragmentCreated[2]) {
-                    mFragments[2] = new Tab3();
-                    mFragmentCreated[2] = true;
-                }
-                return mFragments[2];
-            case 3:
-                if (!mFragmentCreated[3]) {
-                    mFragments[3] = new LogFragment();
-                    mFragmentCreated[3] = true;
-                }
-                return mFragments[3];
-            default:
-                return null;
+        if (position > mTabCount) {
+            return null;
         }
+        return mFragments[position];
 
     }
 

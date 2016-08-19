@@ -88,6 +88,8 @@ public class LogFragment extends ListFragment {
     public void onResume () {
 
         super.onResume();
+        // Ask AppLog to resend us all log messages.
+        displayLog(AppLog.getLogMsg());
         Log.d(LOG_TAG, "onResume()");
 
     }
@@ -104,7 +106,7 @@ public class LogFragment extends ListFragment {
     public void onStop () {
 
         super.onStop();
-        Log.d(LOG_TAG, "onStop')");
+        Log.d(LOG_TAG, "onStop()");
 
     }
 

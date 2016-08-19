@@ -26,6 +26,14 @@ public class AppLog {
 
     }
 
+    /**
+     * Called by log fragment, when it's displayed again, to refresh display.
+     */
+    public static ArrayList<String> getLogMsg() {
+
+        return mLogMessages;
+    }
+
     public static void d(String tag, String msg) {
 
         // Log to standard Android log system.
@@ -36,13 +44,14 @@ public class AppLog {
 
     private static void displayOurLogMsg(String tag, String msg) {
 
-        if (mFragment == null) {
-            return;
-        }
         StringBuilder logMsg = new StringBuilder();
         String formattedDate = LOG_TIME_FORMAT.format(Calendar.getInstance().getTime());
         logMsg.append(formattedDate).append(DASH).append(tag).append(DASH).append(msg);
         mLogMessages.add(0, logMsg.toString());
+        // We may be requested to display a log while associated fragment is not active.
+        if (mFragment == null) {
+            return;
+        }
         mFragment.displayLog(mLogMessages);
 
     }
