@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="tab_my_things">Mes trucs</string>
-    <string name="tab_around_me">Autour de moi</string>
-    <string name="tab_tracked_things">Trucs traqués</string>
-    <string name="tab_log">Traces</string>
-    <string name="log_message">message de trace</string>
-    <string name="options_show_log">Traces</string>
-</resources>
