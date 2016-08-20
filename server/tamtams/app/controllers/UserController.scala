@@ -34,7 +34,7 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
   def usersJSONCollection : Future[JSONCollection] =
   database.map( // once future database is completed :
-    connectedDb => connectedDb.collection[JSONCollection]("TamtamUsers")
+    connectedDb => connectedDb.collection[JSONCollection]("TamtamThings")
   )
   // register a callback on connection error :
   usersJSONCollection.onFailure{
@@ -63,7 +63,7 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   def getUser(userId: String) = Action.async {
     request => {
 
-      val findUserQuery: JsObject = Json.obj("id" -> userId)
+      val findUserQuery: JsObject = Json.obj("_id" -> userId)
       val futureFindUser: Future[Option[User]] =
         usersJSONCollection.flatMap(jscol => jscol.find(findUserQuery).one[User])
 
@@ -71,7 +71,7 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
         case Some(user) => {
           val jsonUser: JsValue = Json.toJson(user)
           Logger.info(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonUser)}")
-          Ok(Json.toJson(jsonUser))// todo : check if necessary to reencode as json ?
+          Ok(jsonUser)// todo : check if necessary to reencode as json ?
         }
         case None => {
           Logger.info(s"tamtams : user ${userId} Not found ")
@@ -100,7 +100,7 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     */
   def putUser(userId: String) = Action.async(parse.json[User]) {
     request => {
-      if (userId == request.body.id) {
+      if (userId == request.body._id) {
         Logger.info(s" tamtams : requesting insertion of User : ${request.body}")
 
         // ask to write our User to the database
@@ -124,7 +124,7 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       }
       else
       {
-        Logger.info(s" tamtams : userId in request is $userId is different from user.id in Json representation ${request.body.id}")
+        Logger.info(s" tamtams : userId in request is $userId is different from user.id in Json representation ${request.body._id}")
         Future.successful(BadRequest)
       }
     }

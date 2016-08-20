@@ -8,22 +8,24 @@ GET     /sync                            controllers.HomeController.index
 ###### user related routes ######
 
 # returns a User
-GET     /users/:userId               controllers.UserController.getUser(userId: String)
+GET     /users/:userId                            controllers.UserController.getUser(userId: String)
 
 # insert a new User in the database
-PUT     /users/:userId               controllers.UserController.putUser(userId: String)
+PUT     /users/:userId                            controllers.UserController.putUser(userId: String)
 
 
 ###### Thing related routes ######
 
 # returns a Thing from database
-GET     /things/:thingId             controllers.ThingController.getThing(thingId: String)
+GET     /things/:thingId                          controllers.ThingController.getThing(thingId: String)
 
 # insert a new Thing in the database
-PUT     /things/:thingId        controllers.ThingController.putThing(thingId: String)
+PUT     /things/:thingId                          controllers.ThingController.putThing(thingId: String)
 
+# insert a new Thing in this user's showcase
+PUT     /users/:userId/sellingThings/:thingId     controllers.ThingController.sellThing(userId: String, thingId: String)
 
 
 
 # Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+GET     /assets/*file                             controllers.Assets.versioned(path="/public", file: Asset)

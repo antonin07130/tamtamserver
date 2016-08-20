@@ -9,6 +9,8 @@ import play.api.libs.json._
 import play.api.mvc._
 import utils.ThingJsonConversion._
 import models.Thing
+import models.User
+
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
 import play.modules.reactivemongo.json._
 import reactivemongo.api.collections.GenericQueryBuilder
@@ -36,7 +38,6 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     * to TamtamThings collection as a [[reactivemongo.api.Collection]]
     * this is a def not a val because it must be re-evaluated at each call
     */
-
   def thingsJSONCollection : Future[JSONCollection] =
     database.map( // once future database is completed :
       connectedDb => connectedDb.collection[JSONCollection]("TamtamThings")
@@ -66,7 +67,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   def getThing(thingId: String) = Action.async {
     request => {
 
-      val findThingQuery: JsObject = Json.obj("id" -> thingId)
+      val findThingQuery: JsObject = Json.obj("_id" -> thingId)
       val futureFindThing: Future[Option[Thing]] =
         thingsJSONCollection.flatMap(jscol => jscol.find(findThingQuery).one[Thing])
 
@@ -74,7 +75,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
         case Some(thing) => {
           val jsonThing: JsValue = Json.toJson(thing)
           Logger.info(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonThing)}")
-          Ok(Json.toJson(jsonThing))// todo : check if necessary to reencode as json ?
+          Ok(jsonThing)// todo : check if necessary to reencode as json ?
         }
         case None => {
           Logger.info(s"tamtams : thing ${thingId} Not found ")
@@ -102,7 +103,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     */
   def putThing(thingId: String) = Action.async(parse.json[Thing]) {
     request => {
-      if (thingId == request.body.id) {
+      if (thingId == request.body._id) {
       Logger.info(s" tamtams : requesting insertion of Thing : ${request.body}")
 
       // ask to write our Thing to the database
@@ -126,11 +127,73 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       }
       else
         {
-          Logger.info(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.id}")
+          Logger.info(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body._id}")
           Future.successful(BadRequest)
         }
     }
   }
+
+
+
+// todo : all this function
+  /**
+    * This async action reads a request body
+    * and parses it into a [[Thing]] object.
+    * The [[Thing]] object is inserted in the
+    * userId's sellingThings list.
+    * @param userId  Id of the user whose sellingThings list will be updated.
+    *                If this user is not found, a not found response is sent.
+    * @param thingId Id of the thing to be created
+    *                This Id is also part of the Json (Thing/id)
+    *                if these ids are not equal, the server answers
+    *                with a BadRequest answer.
+    * @return
+    */
+  def sellThing(userId: String,thingId: String) = Action.async(parse.json[Thing]) {
+    request => {
+      if (thingId == request.body._id) {
+        Logger.info(s" tamtams : requesting insertion of Thing : ${request.body}")
+
+
+        def selector = Json.obj("_id" -> userId)
+        // define a mongoDb request to push the Json representation of thing to an array named sellingThings
+        def insertionRequest = Json.obj(
+          "$addToSet" -> Json.obj(
+            "sellingThings" -> Json.toJson(request.body))
+        )
+
+        // ask to write our Thing to the database
+        val futureWriteThingResult: Future[WriteResult] =
+        thingsJSONCollection.flatMap( jscol => {
+          Logger.info(s"request to mongoDb : $selector $insertionRequest")
+            jscol.update(selector, insertionRequest)})
+
+        // stick callbacks to write results to send an appropriate answer
+        futureWriteThingResult.map{ okResult =>
+          Logger.info(s" tamtams : sucessfull insertion to MongoDb in ${userId} : ${okResult.errmsg}")
+          Created.withHeaders((LOCATION, request.host + request.uri))
+        } recover { // deal with exceptions related to database connection
+          case err: CommandError => {
+            Logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
+            InternalServerError
+          }
+          case PrimaryUnavailableException => {
+            Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+            InternalServerError
+          }
+        }
+      }
+      else
+      {
+        Logger.info(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body._id}")
+        Future.successful(BadRequest)
+      }
+    }
+  }
+
+
+
+
 
 
   // todo : get things near with database near functions
