@@ -7,4 +7,12 @@
     <string name="tab_log">Traces</string>
     <string name="action_add">Mettre en vente</string>
     <string name="action_settings">Paramètres</string>
+    <string name="selling_sell">Vendre</string>
+    <string name="selling_category">Catégorie :</string>
+    <string name="selling_price">Prix :</string>
+    <string name="selling_description">Description :</string>
+    <string name="selling_location">Localisation :</string>
+    <string name="selling_current_loc">Position actuelle</string>
+    <string name="selling_with_me_loc">Toujours avec moi</string>
+    <string name="selling_OK">OK</string>
 </resources>

@@ -21,6 +21,7 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.EditText;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -36,7 +37,9 @@ import com.google.android.gms.location.LocationSettingsStates;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -48,6 +51,10 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         LocationListener {
 
     private final static String LOG_TAG = "MainActivity";
+
+    private final static String FILE_NAME_PREFIX = "TAMTAM_";
+
+    public final static String SELLING_INTENT_EXTRA_URI = "thumbnailURI";
 
     private final static boolean AUTO_REFRESH = true;
 
@@ -71,9 +78,10 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     private LocationRequest mLocationRequest = null;
 
     /**
-     * For pictures
+     * For pictures.
      */
     private String mCurrentPhotoPath;
+    private String mCurrentTimeStamp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -372,15 +380,30 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
         if (requestCode == REQUEST_TAKE_PHOTO && resultCode == RESULT_OK) {
             AppLog.d(LOG_TAG, "Calling setPic()");
-            setPic();
+            try {
+                Uri thumbnailURI = createThumbnailFile();
+                // Start the selling activity.
+                Intent intent = new Intent(this, SellingActivity.class);
+                intent.putExtra(SELLING_INTENT_EXTRA_URI, thumbnailURI.toString());
+                startActivity(intent);
+            } catch (IOException e) {
+                AppLog.d(LOG_TAG, "createThumbnailFile() => " + e.getMessage());
+            }
         }
 
     }
 
+    /**
+     *
+     * Side effects:
+     * - sets mCurrentTimeStamp
+     * - sets mCurrentPhotoPath
+     *
+     */
     private File createImageFile() throws IOException {
-        // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmssSSS").format(new Date());
-        String imageFileName = "TAMTAM_" + timeStamp;
+        // Create an image file name.
+        mCurrentTimeStamp = new SimpleDateFormat("yyyyMMdd_HHmmssSSS").format(new Date());
+        String imageFileName = FILE_NAME_PREFIX + mCurrentTimeStamp;
         File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         File image = File.createTempFile(
                 imageFileName,  /* prefix */
@@ -393,7 +416,12 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         return image;
     }
 
-    private void setPic() {
+    /**
+     *
+     * Returns URI to thumbnail file to be displayed by selling activity.
+     *
+     */
+    private Uri createThumbnailFile() throws IOException {
 
         // Target dimensions.
         int targetW = IMAGE_MAX_WIDTH;
@@ -416,8 +444,27 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         bmOptions.inSampleSize = scaleFactor;
 
         Bitmap bitmap = BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
-        AppLog.d(LOG_TAG, "Bitmap width: " + bitmap.getWidth());
-        AppLog.d(LOG_TAG,"Bitmap height:     " + bitmap.getHeight());
+        AppLog.d(LOG_TAG, "Bitmap width:  " + bitmap.getWidth());
+        AppLog.d(LOG_TAG, "Bitmap height: " + bitmap.getHeight());
+
+        // Create file.
+        String imageFileName = FILE_NAME_PREFIX + mCurrentTimeStamp + "_TN";
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+        // Create URI.
+        Uri photoURI = FileProvider.getUriForFile(this,
+                "com.orange.pb.android.fileprovider",
+                image);
+        // Save bitmap to file.
+        OutputStream outStream = new FileOutputStream(image);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outStream);
+        outStream.flush();
+        outStream.close();
+        return photoURI;
 
     }
 

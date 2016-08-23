@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="categories_array">
+        <item>Art et Décoration</item>
+        <item>Electroménager</item>
+        <item>Image et Vidéo</item>
+        <item>Jeux</item>
+        <item>Livres</item>
+        <item>Meubles</item>
+        <item>Musique et Son</item>
+        <item>Outils</item>
+        <item>Sport</item>
+        <item>Vêtements</item>
+        <item>Autres</item>
+    </string-array>
+</resources>
