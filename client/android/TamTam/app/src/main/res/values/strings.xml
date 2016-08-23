@@ -5,4 +5,6 @@
     <string name="tab3_title">Trucs traqués</string>
     <string name="log_message">Message de trace</string>
     <string name="tab_log">Traces</string>
+    <string name="action_add">Mettre en vente</string>
+    <string name="action_settings">Paramètres</string>
 </resources>

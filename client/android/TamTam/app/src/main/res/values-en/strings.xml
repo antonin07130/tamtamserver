@@ -6,4 +6,6 @@
     <string name="tab3_title">Tracked things</string>
     <string name="log_message">Log message</string>
     <string name="tab_log">Log</string>
+    <string name="action_add">Offer for sale</string>
+    <string name="action_settings">Settings</string>
 </resources>

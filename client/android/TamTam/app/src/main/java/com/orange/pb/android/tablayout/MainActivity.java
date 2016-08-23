@@ -1,17 +1,26 @@
 package com.orange.pb.android.tablayout;
 
+import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.TabLayout;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -26,6 +35,11 @@ import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStates;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 /**
  * Created by pascalb on 8/17/16.
  */
@@ -39,17 +53,27 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
     private final static int REQUEST_CHECK_SETTINGS = 100;
 
-    // This is our tablayout
-    private TabLayout tabLayout;
+    private static final int REQUEST_TAKE_PHOTO = 1;
+    private static final int IMAGE_MAX_WIDTH = 200;
+    private static final int IMAGE_MAX_HEIGHT = 200;
 
-    // This is our viewPager
-    private ViewPager viewPager;
+    /**
+     * for tab handling.
+     */
+    private TabLayout mTabLayout;
+    private ViewPager mViewPager;
 
-    // Pointer to Google API client used for location services.
+    /**
+     * For location handling.
+     */
     private GoogleApiClient mGoogleApiClient = null;
-
-    private Location mCurrentLocation = null;
+    private Location mCurrentLocation        = null;
     private LocationRequest mLocationRequest = null;
+
+    /**
+     * For pictures
+     */
+    private String mCurrentPhotoPath;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,17 +87,17 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         setSupportActionBar(toolbar);
 
         // Initializing the tablayout
-        tabLayout = (TabLayout) findViewById(R.id.tabLayout);
+        mTabLayout = (TabLayout) findViewById(R.id.tabLayout);
         // Adding the tabs using addTab() method.
-        // Ta titles can't be set here, as we call tabLayout.setupWithViewPager() below.
-        tabLayout.addTab(tabLayout.newTab());  // My things
-        tabLayout.addTab(tabLayout.newTab());  // Around me
-        tabLayout.addTab(tabLayout.newTab());  // Tracked things
-        tabLayout.addTab(tabLayout.newTab());  // Log
-        tabLayout.setTabGravity(TabLayout.GRAVITY_FILL);
+        // Ta titles can't be set here, as we call mTabLayout.setupWithViewPager() below.
+        mTabLayout.addTab(mTabLayout.newTab());  // My things
+        mTabLayout.addTab(mTabLayout.newTab());  // Around me
+        mTabLayout.addTab(mTabLayout.newTab());  // Tracked things
+        mTabLayout.addTab(mTabLayout.newTab());  // Log
+        mTabLayout.setTabGravity(TabLayout.GRAVITY_FILL);
 
-        // Initializing viewPager.
-        viewPager = (ViewPager) findViewById(R.id.pager);
+        // Initializing mViewPager.
+        mViewPager = (ViewPager) findViewById(R.id.pager);
         // Creating our pager adapter. Tab titles must be set here.
         String[] tabTitles = new String[4];
         tabTitles[0] = getResources().getString(R.string.tab1_title);
@@ -82,11 +106,11 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         tabTitles[3] = getResources().getString(R.string.tab_log);
         Pager adapter = new Pager(getSupportFragmentManager(), tabTitles);
         // Adding adapter to pager.
-        viewPager.setAdapter(adapter);
+        mViewPager.setAdapter(adapter);
 
-        tabLayout.setupWithViewPager(viewPager, AUTO_REFRESH);
+        mTabLayout.setupWithViewPager(mViewPager, AUTO_REFRESH);
         // Adding onTabSelectedListener to swipe views
-        tabLayout.addOnTabSelectedListener(this);
+        mTabLayout.addOnTabSelectedListener(this);
 
         adapter.createFragments();
 
@@ -135,7 +159,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     @Override
     public void onTabSelected(TabLayout.Tab tab) {
 
-        viewPager.setCurrentItem(tab.getPosition());
+        mViewPager.setCurrentItem(tab.getPosition());
 
     }
 
@@ -150,9 +174,11 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     }
 
     /**
-     * Implementation of location services interfaces.
-     * @param bundle
+     *
+     * Location handling.
+     *
      */
+
     @Override
     public void onConnected(@Nullable Bundle bundle) {
 
@@ -238,10 +264,6 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
     }
 
-    /**
-     * Implementation of location update callback.
-     * @param location
-     */
     @Override
     public void onLocationChanged(Location location) {
 
@@ -281,6 +303,121 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);
+
+    }
+
+    /**
+     *
+     * Action bar menu handling.
+     *
+     */
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.actions, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.action_settings:
+                return true;
+
+            case R.id.action_add:
+                dispatchTakePictureIntent();
+                return true;
+
+            default:
+                // If we got here, the user's action was not recognized.
+                // Invoke the superclass to handle it.
+                return super.onOptionsItemSelected(item);
+
+        }
+    }
+
+    /**
+     *
+     * Camera handling.
+     *
+     */
+
+    private void dispatchTakePictureIntent() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            // Create the File where the photo should go.
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+            } catch (IOException ex) {
+                // Error occurred while creating the File.
+                // TODO
+            }
+            // Continue only if the File was successfully created.
+            if (photoFile != null) {
+                Uri photoURI = FileProvider.getUriForFile(this,
+                        "com.orange.pb.android.fileprovider",
+                        photoFile);
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
+                // When the user exits from the camera application, onActivityResult() is called.
+            }
+        }
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
+        if (requestCode == REQUEST_TAKE_PHOTO && resultCode == RESULT_OK) {
+            AppLog.d(LOG_TAG, "Calling setPic()");
+            setPic();
+        }
+
+    }
+
+    private File createImageFile() throws IOException {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmssSSS").format(new Date());
+        String imageFileName = "TAMTAM_" + timeStamp;
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        // Save file path.
+        mCurrentPhotoPath = image.getAbsolutePath();
+        return image;
+    }
+
+    private void setPic() {
+
+        // Target dimensions.
+        int targetW = IMAGE_MAX_WIDTH;
+        int targetH = IMAGE_MAX_HEIGHT;
+
+        // Get the dimensions of the bitmap.
+        BitmapFactory.Options bmOptions = new BitmapFactory.Options();
+        bmOptions.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
+        int photoW = bmOptions.outWidth;
+        int photoH = bmOptions.outHeight;
+        AppLog.d(LOG_TAG, "Picture W x H: " + photoW + " x " + photoH);
+
+        // Determine how much to scale down the image
+        int scaleFactor = Math.min(photoW/targetW, photoH/targetH);
+        AppLog.d(LOG_TAG, "Scale factor: " + scaleFactor);
+
+        // Decode the image file into a Bitmap sized according to our requirements.
+        bmOptions.inJustDecodeBounds = false;
+        bmOptions.inSampleSize = scaleFactor;
+
+        Bitmap bitmap = BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
+        AppLog.d(LOG_TAG, "Bitmap width: " + bitmap.getWidth());
+        AppLog.d(LOG_TAG,"Bitmap height:     " + bitmap.getHeight());
 
     }
 
