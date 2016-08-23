@@ -13,6 +13,8 @@ import play.api.libs.json._
 /**
   * This controller creates an `Action` to handle HTTP requests to the
   * application's home page.
+  *
+  * Not much for tamtams as of today
   */
 @Singleton
 class HomeController @Inject() extends Controller {

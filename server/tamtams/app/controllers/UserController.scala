@@ -25,6 +25,8 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
                                (implicit exec: ExecutionContext)
   extends Controller with MongoController with ReactiveMongoComponents {
 
+  // defines a named logger for this class
+  val logger: Logger = Logger(this.getClass())
 
   /**
     * Connects to local database using [[database]] and
@@ -38,11 +40,11 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   )
   // register a callback on connection error :
   usersJSONCollection.onFailure{
-    case _ => Logger.error(s" tamtams : MongoDb connection for {$this} error ${PrimaryUnavailableException.message}")
+    case _ => logger.error(s" tamtams : MongoDb connection for {$this} error ${PrimaryUnavailableException.message}")
   }
   // register a callback on connection OK :
   usersJSONCollection.onSuccess{
-    case _ => Logger.info(s" tamtams : MongoDb connection for {$this} OK")
+    case _ => logger.debug(s" tamtams : MongoDb connection for {$this} OK")
   }
 
 
@@ -63,23 +65,23 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   def getUser(userId: String) = Action.async {
     request => {
 
-      val findUserQuery: JsObject = Json.obj("_id" -> userId)
+      val findUserQuery: JsObject = Json.obj("idUser" -> userId)
       val futureFindUser: Future[Option[User]] =
         usersJSONCollection.flatMap(jscol => jscol.find(findUserQuery).one[User])
 
       futureFindUser.map{
         case Some(user) => {
           val jsonUser: JsValue = Json.toJson(user)
-          Logger.info(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonUser)}")
-          Ok(jsonUser)// todo : check if necessary to reencode as json ?
+          logger.debug(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonUser)}")
+          Ok(jsonUser)
         }
         case None => {
-          Logger.info(s"tamtams : user ${userId} Not found ")
+          logger.debug(s"tamtams : user ${userId} Not found ")
           NotFound
         }
       } recover { // deal with exceptions related to database connection
         case PrimaryUnavailableException => {
-          Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
           InternalServerError
         }
       }
@@ -100,8 +102,8 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     */
   def putUser(userId: String) = Action.async(parse.json[User]) {
     request => {
-      if (userId == request.body._id) {
-        Logger.info(s" tamtams : requesting insertion of User : ${request.body}")
+      if (userId == request.body.idUser) {
+        logger.debug(s" tamtams : requesting insertion of User : ${request.body}")
 
         // ask to write our User to the database
         val futureWriteUserResult: Future[WriteResult] =
@@ -109,22 +111,22 @@ class UserController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
         // stick callbacks to write results to send an appropriate answer
         futureWriteUserResult.map{ okResult =>
-          Logger.info(s" tamtams : sucessfull insertion to MongoDb ${okResult}")
+          logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult}")
           Created.withHeaders((LOCATION, request.host + request.uri))
         } recover { // deal with exceptions related to database connection
           case err: CommandError if err.code.contains(11000) => {
-            Logger.error(s" tamtams : MongoDb connection error ${err.getMessage()}")
+            logger.error(s" tamtams : MongoDb connection error ${err.getMessage()}")
             InternalServerError
           }
           case PrimaryUnavailableException => {
-            Logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+            logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
             InternalServerError
           }
         }
       }
       else
       {
-        Logger.info(s" tamtams : userId in request is $userId is different from user.id in Json representation ${request.body._id}")
+        logger.debug(s" tamtams : userId in request is $userId is different from user.id in Json representation ${request.body.idUser}")
         Future.successful(BadRequest)
       }
     }

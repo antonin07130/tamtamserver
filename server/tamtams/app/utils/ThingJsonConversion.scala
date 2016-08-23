@@ -52,7 +52,7 @@ object ThingJsonConversion {
     * JSON reader and validation for [[Thing]]
     */
   implicit val thingReads: Reads[Thing] = (
-    (JsPath \ "_id").read[String] and
+    (JsPath \ "idThing").read[String] and
       (JsPath \ "pict").read[String] and
       (JsPath \ "description").read[String] and
       (JsPath \ "price").read[Price] and
