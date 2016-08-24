@@ -22,7 +22,7 @@ object UserJsonConversion {
     * JSON reader and validation for [[User]]
     */
   implicit val userReads: Reads[User] = (
-    (JsPath \ "idUser").read[String] and
+    (JsPath \ "userId").read[String] and
       (JsPath \ "interestedIn").read[Seq[String]] and
       (JsPath \ "sellingThings").read[Seq[Thing]]
     )(User.apply _)

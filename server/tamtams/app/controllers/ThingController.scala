@@ -33,7 +33,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   extends Controller with MongoController with ReactiveMongoComponents {
 
   // defines a named logger for this class
-  val logger: Logger = Logger(this.getClass())
+  val logger: Logger = Logger("application." + this.getClass())
 
   /**
     * Connects to local database using [[database]] and
@@ -57,7 +57,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   // todo : put this code in a function taking a list of anything having an id and returning json or notfound
   /**
     * Create an async Action to return a json object response
-    * containing the [[Thing]] selected by userId.
+    * containing the [[Thing]] selected byuserId.
     * @param thingId id of the thing to be retrieved
     * @return if thingId exists, Ok status code and a Thing encoded as Json
     *           in the body
@@ -107,7 +107,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   def putThing(thingId: String) = Action.async(parse.json[Thing]) {
     request => {
       if (thingId == request.body.thingId) {
-      logger.info(s" tamtams : requesting insertion of Thing : ${request.body}")
+      logger.debug(s" tamtams : requesting insertion of Thing : ${request.body}")
 
       // ask to write our Thing to the database
       val futureWriteThingResult: Future[WriteResult] =
@@ -115,7 +115,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
       // stick callbacks to write results to send an appropriate answer
       futureWriteThingResult.map{ okResult =>
-        logger.info(s" tamtams : sucessfull insertion to MongoDb ${okResult}")
+        logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult}")
         Created.withHeaders((LOCATION, request.host + request.uri))
       } recover { // deal with exceptions related to database connection
         case err: CommandError if err.code.contains(11000) => {
@@ -130,7 +130,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       }
       else
         {
-          logger.info(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}")
+          logger.debug(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}")
           Future.successful(BadRequest)
         }
     }
@@ -143,8 +143,9 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     * This async action reads a request body
     * and parses it into a [[Thing]] object.
     * The [[Thing]] object is inserted in the
-    * userId's sellingThings list.
-    * @param userId  Id of the user whose sellingThings list will be updated.
+    *userId's sellingThings list.
+    *
+    * @paramuserId  Id of the user whose sellingThings list will be updated.
     *                If this user is not found, a not found response is sent.
     * @param thingId Id of the thing to be created
     *                This Id is also part of the Json (Thing/id)
@@ -152,48 +153,92 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     *                with a BadRequest answer.
     * @return
     */
-  def sellThing(userId: String,thingId: String) = Action.async(parse.json[Thing]) {
+  def sellThing(userId: String, thingId: String) = Action.async(parse.json[Thing]) {
     request => {
-      if (thingId == request.body.thingId) {
-        logger.info(s" tamtams : requesting insertion of Thing : ${request.body}")
-
-
-        def selector = Json.obj("idUser" -> userId)
-        // define a mongoDb request to push the Json representation of thing to an array named sellingThings
-        def insertionRequest = Json.obj(
-          "$addToSet" -> Json.obj(
-            "sellingThings" -> Json.toJson(request.body))
-        )
-
-        // ask to write our Thing to the database
-        val futureWriteThingResult: Future[WriteResult] =
-        thingsJSONCollection.flatMap( jscol => {
-          logger.info(s"request to mongoDb : $selector $insertionRequest")
-            jscol.update(selector, insertionRequest)})
-
-        // stick callbacks to write results to send an appropriate answer
-        futureWriteThingResult.map{ okResult =>
-          logger.info(s" tamtams : sucessfull insertion to MongoDb in ${userId} : ${okResult.errmsg}")
-          Created.withHeaders((LOCATION, request.host + request.uri))
-        } recover { // deal with exceptions related to database connection
-          case err: CommandError => {
-            logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
-            InternalServerError
-          }
-          case PrimaryUnavailableException => {
-            logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-            InternalServerError
-          }
-        }
-      }
-      else
-      {
-        logger.info(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}")
+      if (thingId != request.body.thingId) {
+        logger.debug(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}")
         Future.successful(BadRequest)
       }
+
+
+      def selector = Json.obj("userId" ->userId)
+      // define a mongoDb request to push the Json representation of thing to an array named sellingThings
+      def insertionRequest = Json.obj(
+        "$addToSet" -> Json.obj(
+          "sellingThings" -> Json.toJson(request.body))
+      )
+
+      // ask to write our Thing to the database
+      val futureWriteThingResult: Future[WriteResult] =
+      thingsJSONCollection.flatMap(jscol => {
+        logger.debug(s"request to mongoDb : $selector $insertionRequest")
+        jscol.update(selector, insertionRequest, upsert = true)
+      })
+
+      // stick callbacks to write results to send an appropriate answer
+      futureWriteThingResult.map { okResult =>
+        logger.debug(s" tamtams : sucessfull insertion to MongoDb in ${userId} : ${okResult.errmsg}")
+        Created.withHeaders((LOCATION, request.host + request.uri))
+      } recover {
+        // deal with exceptions related to database connection
+        case err: CommandError => {
+          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
+          InternalServerError
+        }
+        case PrimaryUnavailableException => {
+          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+          InternalServerError
+        }
+      }
+
     }
   }
 
+
+
+  /**
+    * This async action finds and remove the [[Thing]] object
+    * fromuserId's sellingThings list.
+    * @paramuserId  Id of the user whose sellingThings list will be updated.
+    *                If this user is not found, a not found response is sent.
+    * @param thingId Id of the thing to be created
+    *                This Id is also part of the Json (Thing/id)
+    *                if these ids are not equal, the server answers
+    *                with a BadRequest answer.
+    * @return
+    */
+  def removeThing(userId: String, thingId: String) = Action.async {
+    request => {
+      logger.debug(s" tamtams : requesting removal of Thing with Id: ${thingId} from user with Id: ${userId}")
+
+      def selector = Json.obj("userId" ->userId)
+      // define a mongoDb request to push the Json representation of thing to an array named sellingThings
+      def removalRequest = Json.obj("$pull" -> Json.obj("sellingThings" -> Json.obj("thindId" -> thingId)))
+
+      // ask to write our Thing to the database
+      val futureWriteThingResult: Future[WriteResult] =
+      thingsJSONCollection.flatMap(jscol => {
+        logger.debug(s"request to mongoDb : $selector $removalRequest")
+        jscol.update(selector, removalRequest)
+      })
+
+      // stick callbacks to write results to send an appropriate answer
+      futureWriteThingResult.map { okResult =>
+        logger.debug(s" tamtams : sucessfull removal from MongoDb from ${userId} : ${okResult.errmsg}")
+        Ok
+      } recover {
+        // deal with exceptions related to database connection
+        case err: CommandError => {
+          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
+          InternalServerError
+        }
+        case PrimaryUnavailableException => {
+          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+          InternalServerError
+        }
+      }
+    }
+  }
 
 
 

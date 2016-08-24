@@ -7,12 +7,14 @@ GET     /sync                            controllers.HomeController.index
 
 ###### user related routes ######
 
-# returns a User
+# return a User from the database
 GET     /users/:userId                            controllers.UserController.getUser(userId: String)
 
 # insert a new User in the database
 PUT     /users/:userId                            controllers.UserController.putUser(userId: String)
 
+# remove a User from the database
+DELETE     /users/:userId                         controllers.UserController.deleteUser(userId: String)
 
 ###### Thing related routes ######
 
@@ -25,6 +27,8 @@ PUT     /things/:thingId                          controllers.ThingController.pu
 # insert a new Thing in this user's showcase
 PUT     /users/:userId/sellingThings/:thingId     controllers.ThingController.sellThing(userId: String, thingId: String)
 
+# remove a Thing from this user's showcase
+DELETE     /users/:userId/sellingThings/:thingId     controllers.ThingController.removeThing(userId: String, thingId: String)
 
 
 # Map static resources from the /public folder to the /assets URL path
