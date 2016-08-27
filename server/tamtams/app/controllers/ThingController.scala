@@ -10,13 +10,12 @@ import play.api.mvc._
 import utils.ThingJsonConversion._
 import models.Thing
 import models.User
-
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
 import play.modules.reactivemongo.json._
 import reactivemongo.api.collections.GenericQueryBuilder
 import reactivemongo.core.actors.Exceptions._
 import reactivemongo.play.json.collection.JSONCollection
-import reactivemongo.api.commands.{ CommandError, WriteResult }
+import reactivemongo.api.commands.{CommandError, WriteResult}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -52,6 +51,26 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   thingsJSONCollection.onSuccess{
     case _ => logger.debug(s" tamtams : MongoDb connection for {$this} OK")
   }
+
+
+  /**
+    * Connects to local database using [[database]] and
+    * to TamtamUsers collection as a [[reactivemongo.api.Collection]]
+    * this is a def not a val because it must be re-evaluated at each call
+    */
+  def usersJSONCollection : Future[JSONCollection] =
+  database.map( // once future database is completed :
+    connectedDb => connectedDb.collection[JSONCollection]("TamtamUsers")
+  )
+  // register a callback on connection error :
+  usersJSONCollection.onFailure{
+    case _ => logger.error(s" tamtams : MongoDb connection for {$this} error ${PrimaryUnavailableException.message}")
+  }
+  // register a callback on connection OK :
+  usersJSONCollection.onSuccess{
+    case _ => logger.debug(s" tamtams : MongoDb connection for {$this} OK")
+  }
+
 
 
   // todo : put this code in a function taking a list of anything having an id and returning json or notfound
@@ -95,6 +114,33 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
 
   /**
+    * This function adds a Thing to a collection
+    * if not found this function creates a new Thing
+    *
+    * @param thing
+    * @param collection
+    * @return
+    */
+  def addThingToThingsCollection(thing: Thing, collection: Future[JSONCollection]): Future[WriteResult] = {
+    // selector used in our MongoDb update (update or insert) request
+    def selector = Json.obj("idThing" -> thing.thingId)
+    // ask to write our User to the database
+    collection.flatMap(jscol => jscol.update[JsObject, Thing](selector, thing, upsert = true))
+  }
+
+  // todo flatten Future[Option[T]] to Future[T] ? and fail the future if the option fails ?
+  /**
+    * Thins function removes a [[Thing]] from a collection
+    *
+    * @param thingId
+    * @param collection
+    * @return [[Future]] of [[Option]] of removed [[Thing]]
+    */
+  def removeThingToThingsCollection(thingId: String, collection: Future[JSONCollection]): Future[Option[Thing]] =
+  collection.flatMap(jscol => jscol.findAndRemove(Json.obj("thingId" -> thingId)).map(_.result[Thing]))
+
+
+  /**
     * This async action reads a request body
     * and parses it into a [[Thing]] object.
     * The [[Thing]] object is inserted in the database.
@@ -110,8 +156,9 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       logger.debug(s" tamtams : requesting insertion of Thing : ${request.body}")
 
       // ask to write our Thing to the database
-      val futureWriteThingResult: Future[WriteResult] =
-        thingsJSONCollection.flatMap(jscol => jscol.insert[Thing](request.body))
+      val futureWriteThingResult = addThingToThingsCollection(request.body,thingsJSONCollection)
+
+      //todo write thhingref to User's selling things
 
       // stick callbacks to write results to send an appropriate answer
       futureWriteThingResult.map{ okResult =>
@@ -138,14 +185,14 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
 
 
-// todo : all this function
+// todo : merge the 2 db requests results to 1 global result to handle errors...
   /**
     * This async action reads a request body
     * and parses it into a [[Thing]] object.
-    * The [[Thing]] object is inserted in the
-    *userId's sellingThings list.
+    * The [[Thing]] object thingId is inserted in the
+    * userId's sellingThings list.
     *
-    * @paramuserId  Id of the user whose sellingThings list will be updated.
+    * @param userId  Id of the user whose sellingThings list will be updated.
     *                If this user is not found, a not found response is sent.
     * @param thingId Id of the thing to be created
     *                This Id is also part of the Json (Thing/id)
@@ -161,22 +208,27 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       }
 
 
+      // todo : write a for comprehension here to chain future actions
+      // ask to write our Thing to the database
+      val futureWriteThingResult = addThingToThingsCollection(request.body,thingsJSONCollection)
+
+      // now write thingId to user's selling thing list
       def selector = Json.obj("userId" ->userId)
-      // define a mongoDb request to push the Json representation of thing to an array named sellingThings
+      //add to array of sellingthings the new thing :
       def insertionRequest = Json.obj(
         "$addToSet" -> Json.obj(
-          "sellingThings" -> Json.toJson(request.body))
+          "sellingThings" -> request.body.thingId)
       )
 
       // ask to write our Thing to the database
-      val futureWriteThingResult: Future[WriteResult] =
-      thingsJSONCollection.flatMap(jscol => {
+      val futureWriteThingIdResult: Future[WriteResult] =
+      usersJSONCollection.flatMap(jscol => {
         logger.debug(s"request to mongoDb : $selector $insertionRequest")
         jscol.update(selector, insertionRequest, upsert = true)
       })
 
       // stick callbacks to write results to send an appropriate answer
-      futureWriteThingResult.map { okResult =>
+      futureWriteThingIdResult.map { okResult =>
         logger.debug(s" tamtams : sucessfull insertion to MongoDb in ${userId} : ${okResult.errmsg}")
         Created.withHeaders((LOCATION, request.host + request.uri))
       } recover {
@@ -199,7 +251,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   /**
     * This async action finds and remove the [[Thing]] object
     * fromuserId's sellingThings list.
-    * @paramuserId  Id of the user whose sellingThings list will be updated.
+    * @param userId  Id of the user whose sellingThings list will be updated.
     *                If this user is not found, a not found response is sent.
     * @param thingId Id of the thing to be created
     *                This Id is also part of the Json (Thing/id)
@@ -211,9 +263,16 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     request => {
       logger.debug(s" tamtams : requesting removal of Thing with Id: ${thingId} from user with Id: ${userId}")
 
+
+      // todo : write a for comprehension here to chain future actions
+      // ask to remove our Thing to the database
+      val futureRemovedThing : Future[Option[Thing]] =
+        removeThingToThingsCollection(thingId,thingsJSONCollection)
+
+
       def selector = Json.obj("userId" ->userId)
-      // define a mongoDb request to push the Json representation of thing to an array named sellingThings
-      def removalRequest = Json.obj("$pull" -> Json.obj("sellingThings" -> Json.obj("thindId" -> thingId)))
+      // define a mongoDb request to remove the thingId fom sellingThings
+      def removalRequest = Json.obj("$pull" ->  thingId)
 
       // ask to write our Thing to the database
       val futureWriteThingResult: Future[WriteResult] =
@@ -224,7 +283,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
       // stick callbacks to write results to send an appropriate answer
       futureWriteThingResult.map { okResult =>
-        logger.debug(s" tamtams : sucessfull removal from MongoDb from ${userId} : ${okResult.errmsg}")
+        logger.debug(s" tamtams : sucessfull removal of from MongoDb from ${userId} : ${okResult.errmsg}")
         Ok
       } recover {
         // deal with exceptions related to database connection
@@ -242,6 +301,25 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
 
 
+  def getSellingThings(userId : String) = Action.async {
+    request => {
+
+      // fetch the user identified by userId
+      val findUserQuery: JsObject = Json.obj("idUser" -> userId)
+      val futureFindUser: Future[Option[User]] =
+        usersJSONCollection.flatMap(jscol => jscol.find(findUserQuery).one[User])
+
+
+      // tranform User sellingThings array to JSON
+      //
+      val futureThingsArray : Future[Seq[String]] = futureFindUser.map(_.get.sellingThings)
+      
+      /*
+      // Fetch all the Parts that are linked to this Product
+      > sellingThings = db.Things.find({thingId: { $in : user.sellingThingss } } ).toArray() ;
+      */
+      ???
+    }}
 
 
   // todo : get things near with database near functions

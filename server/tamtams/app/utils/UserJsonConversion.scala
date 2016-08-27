@@ -1,6 +1,6 @@
 package utils
 
-import models.{Thing, User}
+import models.{User}
 import ThingJsonConversion._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
@@ -24,6 +24,6 @@ object UserJsonConversion {
   implicit val userReads: Reads[User] = (
     (JsPath \ "userId").read[String] and
       (JsPath \ "interestedIn").read[Seq[String]] and
-      (JsPath \ "sellingThings").read[Seq[Thing]]
+      (JsPath \ "sellingThings").read[Seq[String]]
     )(User.apply _)
 }
