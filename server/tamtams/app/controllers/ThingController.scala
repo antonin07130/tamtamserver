@@ -77,6 +77,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   /**
     * Create an async Action to return a json object response
     * containing the [[Thing]] selected byuserId.
+    *
     * @param thingId id of the thing to be retrieved
     * @return if thingId exists, Ok status code and a Thing encoded as Json
     *           in the body
@@ -118,32 +119,82 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     * if not found this function creates a new Thing
     *
     * @param thing
-    * @param collection
+    * @param collection collection to update
     * @return
     */
   def addThingToThingsCollection(thing: Thing, collection: Future[JSONCollection]): Future[WriteResult] = {
     // selector used in our MongoDb update (update or insert) request
-    def selector = Json.obj("idThing" -> thing.thingId)
+    def selector = Json.obj("thingId" -> thing.thingId)
     // ask to write our User to the database
     collection.flatMap(jscol => jscol.update[JsObject, Thing](selector, thing, upsert = true))
   }
 
   // todo flatten Future[Option[T]] to Future[T] ? and fail the future if the option fails ?
   /**
-    * Thins function removes a [[Thing]] from a collection
+    * Remove a [[Thing]] from a collection
     *
     * @param thingId
-    * @param collection
+    * @param collection collection to update
     * @return [[Future]] of [[Option]] of removed [[Thing]]
     */
-  def removeThingToThingsCollection(thingId: String, collection: Future[JSONCollection]): Future[Option[Thing]] =
+  def removeThingFromThingsCollection(thingId: String, collection: Future[JSONCollection]): Future[Option[Thing]] =
   collection.flatMap(jscol => jscol.findAndRemove(Json.obj("thingId" -> thingId)).map(_.result[Thing]))
+
+
+  /**
+    * Add a newValue to an array of [[String]]s within a user object
+    * in a collection containing users
+    *
+    * @param userId : id of the user whose array of things will be updated
+    * @param userArrayName : name as [[String]] of the array to update
+    * @param newValue : value as [[String]] to insert in the array
+    * @param collection : collection to update
+    * @return [[Future]] of the [[WriteResult]] of this operation
+    */
+  def addValueToUserArray(userId : String, userArrayName : String, newValue: String, collection: Future[JSONCollection])
+  : Future[WriteResult] = {
+    // now write thingId to user's selling thing list
+    def selector = Json.obj("userId" -> userId)
+
+    //add to array of sellingthings the new thing :
+    def insertionRequest = Json.obj( "$addToSet" -> Json.obj(userArrayName -> newValue))
+
+    logger.debug(s"tamtams : update request to mongoDb : $selector $insertionRequest")
+
+    collection.flatMap(jscol => jscol.update(selector, insertionRequest, upsert = true))
+  }
+
+  /**
+    * remove a valueToRemove from an array of [[String]]s within a user object
+    * in a collection containing users
+    *
+    * @param userId : id of the user whose array of things will be updated
+    * @param userArrayName : name as [[String]] of the array to update
+    * @param valueToRemove : value as [[String]] to remove from the array
+    * @param collection : collection to update
+    * @return [[Future]] of the [[WriteResult]] of this operation
+    */
+  def removeValueFromUserArray(userId: String, userArrayName: String, valueToRemove: String, collection: Future[JSONCollection])
+  : Future[WriteResult] = {
+    def selector = Json.obj("userId" -> userId)
+    // define a mongoDb request to remove the thingId fom sellingThings
+    def removalRequest = Json.obj("$pull" -> Json.obj(userArrayName -> valueToRemove))
+    logger.debug(s"tamtams : update request to mongoDb : $selector $removalRequest")
+
+    // ask to write our Thing to the database
+    thingsJSONCollection.flatMap(jscol => {
+      jscol.update(selector, removalRequest)
+    })
+  }
+
+
 
 
   /**
     * This async action reads a request body
     * and parses it into a [[Thing]] object.
     * The [[Thing]] object is inserted in the database.
+    *
     * @param thingId Id of the thing to be created
     *                This Id is also part of the Json (Thing/id)
     *                if these ids are not equal, the server answers
@@ -212,21 +263,9 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       // ask to write our Thing to the database
       val futureWriteThingResult = addThingToThingsCollection(request.body,thingsJSONCollection)
 
-      // now write thingId to user's selling thing list
-      def selector = Json.obj("userId" ->userId)
-      //add to array of sellingthings the new thing :
-      def insertionRequest = Json.obj(
-        "$addToSet" -> Json.obj(
-          "sellingThings" -> request.body.thingId)
-      )
-
       // ask to write our Thing to the database
       val futureWriteThingIdResult: Future[WriteResult] =
-      usersJSONCollection.flatMap(jscol => {
-        logger.debug(s"request to mongoDb : $selector $insertionRequest")
-        jscol.update(selector, insertionRequest, upsert = true)
-      })
-
+        addValueToUserArray(userId, "sellingThings", request.body.thingId, usersJSONCollection)
       // stick callbacks to write results to send an appropriate answer
       futureWriteThingIdResult.map { okResult =>
         logger.debug(s" tamtams : sucessfull insertion to MongoDb in ${userId} : ${okResult.errmsg}")
@@ -251,6 +290,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   /**
     * This async action finds and remove the [[Thing]] object
     * fromuserId's sellingThings list.
+    *
     * @param userId  Id of the user whose sellingThings list will be updated.
     *                If this user is not found, a not found response is sent.
     * @param thingId Id of the thing to be created
@@ -267,22 +307,14 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       // todo : write a for comprehension here to chain future actions
       // ask to remove our Thing to the database
       val futureRemovedThing : Future[Option[Thing]] =
-        removeThingToThingsCollection(thingId,thingsJSONCollection)
+        removeThingFromThingsCollection(thingId,thingsJSONCollection)
 
+      val futureRemoveThingIdResult: Future[WriteResult] =
+        removeValueFromUserArray(userId, "sellingThings" ,thingId, usersJSONCollection)
 
-      def selector = Json.obj("userId" ->userId)
-      // define a mongoDb request to remove the thingId fom sellingThings
-      def removalRequest = Json.obj("$pull" ->  thingId)
-
-      // ask to write our Thing to the database
-      val futureWriteThingResult: Future[WriteResult] =
-      thingsJSONCollection.flatMap(jscol => {
-        logger.debug(s"request to mongoDb : $selector $removalRequest")
-        jscol.update(selector, removalRequest)
-      })
 
       // stick callbacks to write results to send an appropriate answer
-      futureWriteThingResult.map { okResult =>
+      futureRemoveThingIdResult.map { okResult =>
         logger.debug(s" tamtams : sucessfull removal of from MongoDb from ${userId} : ${okResult.errmsg}")
         Ok
       } recover {
@@ -300,7 +332,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   }
 
 
-
+/*
   def getSellingThings(userId : String) = Action.async {
     request => {
 
@@ -308,6 +340,14 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       val findUserQuery: JsObject = Json.obj("idUser" -> userId)
       val futureFindUser: Future[Option[User]] =
         usersJSONCollection.flatMap(jscol => jscol.find(findUserQuery).one[User])
+
+
+      val futureThingIdArray: Future[Seq[String]] = futureFindUser.map(_.get.sellingThings)
+
+      val jsonlistofThings: Future[JsValue] = futureThingIdArray.map(idList => Json.toJson(idList))
+
+      val futureListThings: Future[List[Thing]] =
+        usersJSONCollection.flatMap(jscol => jscol.find(
 
 
       // tranform User sellingThings array to JSON
@@ -318,9 +358,10 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       // Fetch all the Parts that are linked to this Product
       > sellingThings = db.Things.find({thingId: { $in : user.sellingThingss } } ).toArray() ;
       */
-      ???
-    }}
-
+      Future(Ok)
+    }
+  }
+*/
 
   // todo : get things near with database near functions
   def getThingsNear(lat: Double, lon: Double) = TODO

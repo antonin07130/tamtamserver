@@ -34,10 +34,9 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     * to TamtamUsers collection as a [[reactivemongo.api.Collection]]
     * this is a def not a val because it must be re-evaluated at each call
     */
-
   def usersJSONCollection: Future[JSONCollection] =
   database.map(// once future database is completed :
-    connectedDb => connectedDb.collection[JSONCollection]("TamtamThings")
+    connectedDb => connectedDb.collection[JSONCollection]("TamtamUsers")
   )
 
   // register a callback on connection error :
@@ -67,7 +66,7 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   def getUser(userId: String) = Action.async {
     request => {
 
-      val findUserQuery: JsObject = Json.obj("idUser" -> userId)
+      val findUserQuery: JsObject = Json.obj("userId" -> userId)
       val futureFindUser: Future[Option[User]] =
         usersJSONCollection.flatMap(jscol => jscol.find(findUserQuery).one[User])
 
@@ -115,7 +114,7 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
 
       // selector used in our MongoDb update (update or insert) request
-      def selector = Json.obj("idUser" -> userId)
+      def selector = Json.obj("userId" -> userId)
 
       // ask to write our User to the database
       val futureWriteUserResult: Future[WriteResult] =
@@ -123,7 +122,7 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
       // stick callbacks to write results to send an appropriate answer
       futureWriteUserResult.map { okResult =>
-        logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult}")
+        logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult.message}")
         Created.withHeaders((LOCATION, request.host + request.uri))
       } recover {
         // deal with exceptions related to database connection
@@ -154,7 +153,7 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   def deleteUser(userId: String) = Action.async {
     request => {
 
-      val findUserQuery: JsObject = Json.obj("idUser" -> userId)
+      val findUserQuery: JsObject = Json.obj("userId" -> userId)
 
       val futureRemovedUser: Future[Option[User]] =
         usersJSONCollection.flatMap(jscol => jscol.findAndRemove(findUserQuery).map(_.result[User]))
