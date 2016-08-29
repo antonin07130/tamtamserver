@@ -332,15 +332,61 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   }
 
 
-/*
+
   def getSellingThings(userId : String) = Action.async {
     request => {
 
-      // fetch the user identified by userId
-      val findUserQuery: JsObject = Json.obj("idUser" -> userId)
-      val futureFindUser: Future[Option[User]] =
-        usersJSONCollection.flatMap(jscol => jscol.find(findUserQuery).one[User])
+      val findUserQuery: JsObject = Json.obj("userId" -> userId)
+      val projectOnlyInterrestedInThingIds: JsObject = Json.obj("sellingThings" -> 1, "_id" -> 0)
 
+      // try to get a Js value containing an array named "sellingthings"
+      val futureSellingThingsJson: Future[Option[JsValue]] =
+        usersJSONCollection.flatMap(jscol => jscol.find(findUserQuery, projectOnlyInterrestedInThingIds).one[JsValue])
+
+      // try to extract the array and store it as a Seq[String]
+      val futureSellingThingsSeq: Future[Option[Seq[String]]] = futureSellingThingsJson.map {
+      case Some(jsonVal) => Some((jsonVal \ "sellingThings").as[Seq[String]])
+      case _ => None
+      }
+
+
+      // todo : end the action here instead of requesting database for an empty set (none case)
+      // build the request to get things which id is in the array
+      val futureFindThingsQuery: Future[JsObject] = futureSellingThingsSeq.map {
+        case None => {
+          logger.debug(s"tamtams : no sellingThings found for ${userId}")
+          Json.obj("thingId" -> Json.obj("$in" -> Json.arr()))
+        }
+        case Some(seqOfThingsId) => Json.obj("thingId" -> Json.obj("$in" -> Json.arr(seqOfThingsId)))
+      }
+
+      val futureThingsListResult: Future[List[Thing]] = futureFindThingsQuery.flatMap(findThingsQuery =>
+        thingsJSONCollection.flatMap(jscol => jscol.find(findThingsQuery).cursor[Thing]().collect[List]()))
+
+      futureThingsListResult.map {
+        case listOfThings : List[Thing] => {
+          val jsonThingsList: JsValue = Json.toJson(listOfThings)
+          logger.debug(s"tamtams : returns things from mongo ${Json.prettyPrint(jsonThingsList)}")
+          Ok(jsonThingsList)
+        }
+        case _ => {
+          logger.error(s"tamtams : collection structure unknown ($thingsJSONCollection should be a collection of Things) ")
+          InternalServerError
+        }
+      }recover {
+        // deal with exceptions related to database connection
+        case err: CommandError => {
+          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
+          InternalServerError
+        }
+        case PrimaryUnavailableException => {
+          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+          InternalServerError
+        }
+      }
+    }
+
+/*
 
       val futureThingIdArray: Future[Seq[String]] = futureFindUser.map(_.get.sellingThings)
 
@@ -353,15 +399,14 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       // tranform User sellingThings array to JSON
       //
       val futureThingsArray : Future[Seq[String]] = futureFindUser.map(_.get.sellingThings)
-      
+  */
       /*
       // Fetch all the Parts that are linked to this Product
       > sellingThings = db.Things.find({thingId: { $in : user.sellingThingss } } ).toArray() ;
       */
-      Future(Ok)
-    }
+
   }
-*/
+
 
   // todo : get things near with database near functions
   def getThingsNear(lat: Double, lon: Double) = TODO

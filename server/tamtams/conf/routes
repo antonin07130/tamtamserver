@@ -16,6 +16,9 @@ PUT     /users/:userId                            controllers.UserController.put
 # remove a User from the database
 DELETE     /users/:userId                         controllers.UserController.deleteUser(userId: String)
 
+# get the list of Things a user is selling
+GET /users/:userId/sellingThings                  controllers.ThingController.getSellingThings(userId : String)
+
 ###### Thing related routes ######
 
 # returns a Thing from database
