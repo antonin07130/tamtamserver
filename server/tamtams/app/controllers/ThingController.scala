@@ -1,11 +1,12 @@
 package controllers
 
+import java.util.NoSuchElementException
 import javax.inject._
 
 import akka.util.ByteString
 import play.api.Logger
 import play.api.http.HttpEntity
-import play.api.libs.json._
+import play.api.libs.json.{JsObject, _}
 import play.api.mvc._
 import utils.ThingJsonConversion._
 import models.Thing
@@ -73,45 +74,6 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
 
 
-  // todo : put this code in a function taking a list of anything having an id and returning json or notfound
-  /**
-    * Create an async Action to return a json object response
-    * containing the [[Thing]] selected byuserId.
-    *
-    * @param thingId id of the thing to be retrieved
-    * @return if thingId exists, Ok status code and a Thing encoded as Json
-    *           in the body
-    *         else if thingId does not exist NotFound status code
-    *         else if defaut database [[database]] is not available,
-    *           an InternalServerError status code
-    *         else an exception I guess
-    */
-  def getThing(thingId: String) = Action.async {
-    request => {
-
-      val findThingQuery: JsObject = Json.obj("thingId" -> thingId)
-
-      val futureFindThing: Future[Option[Thing]] =
-        thingsJSONCollection.flatMap(jscol => jscol.find(findThingQuery).one[Thing])
-
-      futureFindThing.map{
-        case Some(thing) => {
-          val jsonThing: JsValue = Json.toJson(thing)
-          logger.debug(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonThing)}")
-          Ok(jsonThing)
-        }
-        case None => {
-          logger.debug(s"tamtams : thing ${thingId} Not found ")
-          NotFound
-        }
-      } recover { // deal with exceptions related to database connection
-        case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
-        }
-      }
-    }
-  }
 
 
   /**
@@ -183,10 +145,76 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
     // ask to write our Thing to the database
     thingsJSONCollection.flatMap(jscol => {
+      logger.debug(s"tamtams : executing query in mongoDb : update ${selector}, request: ${removalRequest}")
       jscol.update(selector, removalRequest)
     })
   }
 
+  def getArrayFromUser(userId: String, userArrayName: String, collection: Future[JSONCollection])
+  : Future[Option[Seq[String]]] = {
+    val findUserQuery: JsObject = Json.obj("userId" -> userId)
+    val projectOnlyArray: JsObject = Json.obj(userArrayName -> 1, "_id" -> 0)
+
+    // try to get a Js value containing an array named "userArrayName"
+    val futureSellingThingsJson: Future[Option[JsValue]] = {
+      logger.debug(s"tamtams : executing query in mongoDb : find ${findUserQuery}, projection : ${projectOnlyArray}")
+      collection.flatMap(jscol => jscol.find(findUserQuery, projectOnlyArray).one[JsValue])
+    }
+    // try to extract the array and store it as a Seq[String]
+    futureSellingThingsJson.flatMap {
+      case Some(jsonVal) => {
+        val ar = (jsonVal \ userArrayName).as[Seq[String]]
+        logger.debug(s"tamtams : returning following array from MongoDb : ${ar}")
+        Future.successful(Some(ar))
+      }
+      case _ => {
+        logger.debug(s"tamtams : no array named ${userArrayName} found in mongoDb for ${userId}")
+        Future.failed(throw new NoSuchElementException(s"user ${userId} NotFound in mongoDb"))
+      }
+    }
+  }
+
+
+
+  // todo : put this code in a function taking a list of anything having an id and returning json or notfound
+  /**
+    * Create an async Action to return a json object response
+    * containing the [[Thing]] selected byuserId.
+    *
+    * @param thingId id of the thing to be retrieved
+    * @return if thingId exists, Ok status code and a Thing encoded as Json
+    *           in the body
+    *         else if thingId does not exist NotFound status code
+    *         else if defaut database [[database]] is not available,
+    *           an InternalServerError status code
+    *         else an exception I guess
+    */
+  def getThing(thingId: String) = Action.async {
+    request => {
+
+      val findThingQuery: JsObject = Json.obj("thingId" -> thingId)
+
+      val futureFindThing: Future[Option[Thing]] =
+        thingsJSONCollection.flatMap(jscol => jscol.find(findThingQuery).one[Thing])
+
+      futureFindThing.map{
+        case Some(thing) => {
+          val jsonThing: JsValue = Json.toJson(thing)
+          logger.debug(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonThing)}")
+          Ok(jsonThing)
+        }
+        case None => {
+          logger.debug(s"tamtams : thing ${thingId} Not found ")
+          NotFound
+        }
+      } recover { // deal with exceptions related to database connection
+        case PrimaryUnavailableException => {
+          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+          InternalServerError
+        }
+      }
+    }
+  }
 
 
 
@@ -333,38 +361,46 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
 
 
+  /**
+    * This action retrieves the list of things a user is selling
+    * and sends it a a Json array of [[Thing]]
+    * @param userId
+    * @return
+    */
   def getSellingThings(userId : String) = Action.async {
     request => {
 
-      val findUserQuery: JsObject = Json.obj("userId" -> userId)
-      val projectOnlyInterrestedInThingIds: JsObject = Json.obj("sellingThings" -> 1, "_id" -> 0)
-
-      // try to get a Js value containing an array named "sellingthings"
-      val futureSellingThingsJson: Future[Option[JsValue]] =
-        usersJSONCollection.flatMap(jscol => jscol.find(findUserQuery, projectOnlyInterrestedInThingIds).one[JsValue])
-
-      // try to extract the array and store it as a Seq[String]
-      val futureSellingThingsSeq: Future[Option[Seq[String]]] = futureSellingThingsJson.map {
-      case Some(jsonVal) => Some((jsonVal \ "sellingThings").as[Seq[String]])
-      case _ => None
-      }
-
-
-      // todo : end the action here instead of requesting database for an empty set (none case)
-      // build the request to get things which id is in the array
-      val futureFindThingsQuery: Future[JsObject] = futureSellingThingsSeq.map {
-        case None => {
-          logger.debug(s"tamtams : no sellingThings found for ${userId}")
-          Json.obj("thingId" -> Json.obj("$in" -> Json.arr()))
+      // helper function for "for comprehension"
+      def buildRequest(ListOfThingsId : Option[Seq[String]]) : Future[Option[JsObject]] =
+        ListOfThingsId match {
+          case None => {
+            logger.debug(s"tamtams : no sellingThings found for ${userId}")
+            Future.successful(None) // we might want to fail the future here already ?
+          }
+          case Some(seqOfThingsId) => Future.successful(Some(Json.obj("thingId" -> Json.obj("$in" -> (seqOfThingsId)))))
         }
-        case Some(seqOfThingsId) => Json.obj("thingId" -> Json.obj("$in" -> Json.arr(seqOfThingsId)))
+      // helper request to mongoDb
+      def requestForThings(query : JsObject): Future[List[Thing]] ={
+        logger.debug(s"tamtams : executing query in mongoDb : find ${query}")
+        thingsJSONCollection.flatMap(jscol => jscol.find(query).cursor[Thing]().collect[List]())
       }
 
-      val futureThingsListResult: Future[List[Thing]] = futureFindThingsQuery.flatMap(findThingsQuery =>
-        thingsJSONCollection.flatMap(jscol => jscol.find(findThingsQuery).cursor[Thing]().collect[List]()))
 
+      // actual work step 1 : build a request with info from users collection
+      val futureRequest: Future[Option[JsObject]] = for {
+        arrayOfThingId <- getArrayFromUser(userId , "sellingThings", usersJSONCollection) // retrieve array of ThingIds
+        request <- buildRequest(arrayOfThingId) // build selection request using this array
+      } yield request
+
+      // step 2 request in things collection
+      val futureThingsListResult: Future[List[Thing]] = futureRequest.flatMap{
+      case Some(req) => requestForThings(req) // execute selection request
+      case None => Future.failed(throw new NoSuchElementException("No request to execute")) // no request was built
+      }
+
+      // step 3 create responses depending on result of requests
       futureThingsListResult.map {
-        case listOfThings : List[Thing] => {
+        case listOfThings : List[Thing] => { // sucessful future with good value
           val jsonThingsList: JsValue = Json.toJson(listOfThings)
           logger.debug(s"tamtams : returns things from mongo ${Json.prettyPrint(jsonThingsList)}")
           Ok(jsonThingsList)
@@ -374,6 +410,10 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
           InternalServerError
         }
       }recover {
+        case e:NoSuchElementException =>{ // if we were not able to build the request
+          logger.debug(s"tamtams : could not build list of Thing Ids for user ${userId}")
+          NotFound
+        }
         // deal with exceptions related to database connection
         case err: CommandError => {
           logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
@@ -385,6 +425,8 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
         }
       }
     }
+
+
 
 /*
 
