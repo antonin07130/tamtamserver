@@ -13,10 +13,11 @@ case class Price(currency: Short, price : Float)
 
 /**
   * this class represents a position
-  * @param lat latitude value
-  * @param lon longitude value
+  * to prepare GeoJson std, the order of positions should be lon, lat, [alt]
+  * @param lon latitude value
+  * @param lat longitude value
   */
-case class Position(lat : Double, lon : Double)
+case class Position(lon : Double, lat : Double)
 
 
 // todo : verify if parameters validation should happen here using specific types

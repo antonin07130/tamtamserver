@@ -31,7 +31,7 @@ PUT     /things/:thingId                          controllers.ThingController.pu
 PUT     /users/:userId/sellingThings/:thingId     controllers.ThingController.sellThing(userId: String, thingId: String)
 
 # remove a Thing from this user's showcase
-DELETE     /users/:userId/sellingThings/:thingId     controllers.ThingController.removeThing(userId: String, thingId: String)
+DELETE     /users/:userId/sellingThings/:thingId  controllers.ThingController.removeThing(userId: String, thingId: String)
 
 
 # Map static resources from the /public folder to the /assets URL path

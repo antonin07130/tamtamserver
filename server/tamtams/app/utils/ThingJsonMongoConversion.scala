@@ -1,14 +1,14 @@
 package utils
 
-import models.{Position, Price, Thing, User}
-import play.api.libs.json.{JsPath, Json, OWrites, Reads}
+import models.{Position, Price, Thing}
 import play.api.libs.functional.syntax._
+import play.api.libs.json.{JsPath, Json, OWrites, Reads}
 
 /**
   * Utility class defining implicit conversion functions
-  * for [[Thing]] used by [[play.api.libs.json]]
+  * for [[Thing]] used by ReactiveMongo
   */
-object ThingJsonConversion {
+object ThingJsonMongoConversion {
 
   /**
     * This helper function helps [[play.api.libs.json]]
