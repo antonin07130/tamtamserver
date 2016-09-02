@@ -21,6 +21,11 @@ class Module extends AbstractModule {
     // Ask Guice to create an instance of ApplicationTimer when the
     // application starts.
     bind(classOf[ApplicationTimer]).asEagerSingleton()
+    /*
+    // Ask Guice to create an instance of MongoDbConnector when the
+    // application starts.
+    bind(classOf[MongoDbConnector]).asEagerSingleton()
+    */
   }
 
 }
