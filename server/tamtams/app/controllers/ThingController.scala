@@ -16,6 +16,8 @@ import reactivemongo.api.collections.GenericQueryBuilder
 import reactivemongo.core.actors.Exceptions._
 import reactivemongo.play.json.collection.JSONCollection
 import reactivemongo.api.commands.{CommandError, UpdateWriteResult, WriteResult}
+import reactivemongo.api.indexes.IndexType._
+import reactivemongo.api.indexes._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -39,16 +41,23 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     * to TamtamThings collection as a [[reactivemongo.api.Collection]]
     * this is a def not a val because it must be re-evaluated at each call
     */
+
   def thingsJSONCollection : Future[JSONCollection] =
     database.map( // once future database is completed :
       connectedDb => connectedDb.collection[JSONCollection]("TamtamThings")
     )
+
+  // create a 2d spherical index on "position" field containing GeoJson Position
+  // todo move this somewhere else so it is executed only once or during reconnecitons
+  val thingIdIndex : reactivemongo.api.indexes.Index = reactivemongo.api.indexes.Index(Seq(("position",Geo2DSpherical)))
+
   // register a callback on connection error :
   thingsJSONCollection.onFailure{
     case _ => logger.error(s" tamtams : MongoDb connection for {$this} error ${PrimaryUnavailableException.message}")
   }
   // register a callback on connection OK :
   thingsJSONCollection.onSuccess{
+    case collection : JSONCollection => collection.indexesManager.ensure(thingIdIndex)
     case _ => logger.debug(s" tamtams : MongoDb connection for {$this} OK")
   }
 
@@ -73,50 +82,16 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
 
 
-
-
-  /**
-    * This function adds a Thing to a collection
-    * if not found this function creates a new Thing
-    *
-    * @param thing [[Thing]] object to add
-    * @param collection collection to update
-    * @return
-    */
-  def addThingToThingsCollection(thing: Thing, collection: Future[JSONCollection]): Future[WriteResult] = {
-
-    // GeoJson position : position {"type":"point","coordinates":[lon,lat]}
+  def thingToGeoJsonThing(thing : Thing): JsObject ={
+    // GeoJson position : position {"type":"Point","coordinates":[lon,lat]}
     val geoJsonPosition : JsObject = Json.obj(
       "position" -> Json.obj(
-        "type" -> "point",
-        "coordinates" -> Seq(thing.position.lon, thing.position.lon)))
-
-    // convert our thing to Json
+        "type" -> "Point",
+        "coordinates" -> Seq(thing.position.lon, thing.position.lat)))
+    // convert our thing to Json (using standards implicit writers)
     val thingJson : JsObject = Json.toJson(thing).as[JsObject]
-
-    val geoJsonThing = thingJson ++ geoJsonPosition
-
-
-    // selector used in our MongoDb update (update or insert) request
-    def selector = Json.obj("thingId" -> thing.thingId)
-    // ask to write our User to the database
-    collection.flatMap(jscol => jscol.update(selector, geoJsonThing, upsert = true))
-  }
-
-  // todo flatten Future[Option[T]] to Future[T] ? and fail the future if the option fails ?
-  /**
-    * Remove a [[Thing]] from a collection
-    *
-    * @param thingId    thingId of Thing to delete
-    * @param collection collection to update
-    * @return [[Future]] of [[Option]] of removed [[Thing]]
-    */
-  def removeThingFromThingsCollection(thingId: String,
-                                      collection: Future[JSONCollection])
-  : Future[Option[Thing]] ={
-
-  logger.debug(s"tamtams : removing $thingId from database")
-    collection.flatMap(jscol => jscol.findAndRemove(Json.obj("thingId" -> thingId)).map(_.result[Thing]))
+    // merge thing json and geoJson JsObject. That updates position key with our new geoJson position
+    thingJson ++ geoJsonPosition
   }
 
   // helper function to convert position node from GeoJson to Json
@@ -129,6 +104,47 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     val jsonThing = geoJsonThing ++ jsonPos
     jsonThing.as[Thing]
   }
+
+  /**
+    * This function adds a Thing to a collection
+    * if not found this function creates a new Thing
+    *
+    * @param thing [[Thing]] object to add
+    * @param collection collection to update
+    * @return
+    */
+  def addThingToThingsCollection(thing: Thing, collection: Future[JSONCollection]): Future[WriteResult] = {
+
+    // GeoJson position : position {"type":"Point","coordinates":[lon,lat]}
+    def geoJsonThing : JsObject = thingToGeoJsonThing(thing)
+
+    // selector used in our MongoDb update (update or insert) request
+    def selector = Json.obj("thingId" -> thing.thingId)
+    // ask to write our User to the database
+    collection.flatMap(jscol => jscol.update(selector, geoJsonThing, upsert = true))
+  }
+
+
+
+
+  /**
+    * Remove a [[Thing]] from a collection
+    *
+    * @param thingId    thingId of Thing to delete
+    * @param collection collection to update
+    * @return [[Future]] of [[Option]] of removed [[Thing]]
+    */
+  def removeThingFromThingsCollection(thingId: String,
+                                      collection: Future[JSONCollection])
+  : Future[Option[Thing]] ={
+
+  logger.debug(s"tamtams : removing $thingId from database")
+    collection.flatMap(jscol => jscol.findAndRemove(Json.obj("thingId" -> thingId)).map(_.result[JsObject]).map{
+      case Some(geoJsonThing) => Some(geoJsonThingToThing(geoJsonThing))
+      case None => None
+    })
+  }
+
 
   /**
     * Retrieve a thing from a mongoDb collection
@@ -167,6 +183,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     requestForThings(query)
   }
 
+
   /**
     * Add a newValue to an array of [[String]]s within a user object
     * in a collection containing users
@@ -185,7 +202,7 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
     logger.debug(s"tamtams : update request to mongoDb : $selector $insertionRequest")
 
-    collection.flatMap(jscol => jscol.update(selector, insertionRequest, upsert = true))
+    collection.flatMap(jscol => jscol.update(selector, insertionRequest, upsert = false))
   }
 
   /**
@@ -344,31 +361,76 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
         logger.debug(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}")
         Future.successful(BadRequest)
       }
-
-
-      // todo : write a for comprehension here to chain future actions
-      // ask to write our Thing to the database
-      val futureWriteThingResult = addThingToThingsCollection(request.body,thingsJSONCollection)
-
-      // ask to write our Thing to the database
-      val futureWriteThingIdResult: Future[WriteResult] =
+      else {
+        // ask to write our thingId to user collection in sellingThings array
+        val futureWriteThingIdResult: Future[WriteResult] =
         addValueToUserArray(userId, "sellingThings", request.body.thingId, usersJSONCollection)
-      // stick callbacks to write results to send an appropriate answer
-      futureWriteThingIdResult.map { okResult =>
-        logger.debug(s" tamtams : sucessfull insertion to MongoDb in ${userId} : ${okResult.errmsg}")
-        Created.withHeaders((LOCATION, request.host + request.uri))
-      } recover {
-        // deal with exceptions related to database connection
-        case err: CommandError => {
-          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
-          InternalServerError
+
+        // when user is updated, ask to update thing database (hope that execution order is conserved !)
+        val futureWriteThingResult: Future[WriteResult] = futureWriteThingIdResult.flatMap {
+          case UpdateWriteResult(_, 0, 0, _, _, _, _, _) => // user was not found : do nothing and send fake write result
+            Future.successful(UpdateWriteResult(true, 0, 0, Seq(), Seq(), None, None, None))
+          case UpdateWriteResult(true, 1, _, _, _, _, _, None) =>
+            addThingToThingsCollection(request.body, thingsJSONCollection) // user found
+          case _ => Future.failed(throw new IllegalStateException) // should not happen
         }
-        case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
+
+
+        // ask to write our Thing to things collection
+        // val futureWriteThingResult: Future[WriteResult] =
+        //   addThingToThingsCollection(request.body,thingsJSONCollection)
+
+        // combine both futures to check for errors :
+        val futureInsertQueriesResults: Future[(WriteResult, WriteResult)] =
+        futureWriteThingIdResult.zip(futureWriteThingResult)
+
+        // helper function to check that query results are as expected
+        def verifyInsertsQueriesResults(queryResults: (WriteResult, WriteResult)): Result = {
+          logger.debug(s"$queryResults")
+          queryResults match {
+            case (UpdateWriteResult(true, 1, 1, _, _, _, _, None), UpdateWriteResult(true, 1, _, _, _, _, _, None)) => {
+              logger.debug("tamtams - insertion in user collection ok, in thing collection ok")
+              Created.withHeaders((LOCATION, request.host + request.uri))
+            }
+            case (UpdateWriteResult(true, 1, 0, _, _, _, _, _), UpdateWriteResult(true, 1, _, _, _, _, _, None)) => {
+              logger.debug(s"tamtams : $thingId already in user collection, insert in thing collection OK")
+              Ok
+            }
+            case (UpdateWriteResult(true, 1, 1, _, _, _, _, _), UpdateWriteResult(_, _, 0, _, _, _, _, _)) => {
+              logger.error("tamtams : insertion in user collection ok, in thing collection KO") //todo : correct state
+              InternalServerError
+            }
+            case (UpdateWriteResult(_, 0, 0, _, _, _, _, _), UpdateWriteResult(true, 1, _, _, _, _, _, _)) => {
+              logger.error("tamtams : user not found, but insertion in thing collection happened anyways") // inconsistent state
+              InternalServerError
+            }
+            case (UpdateWriteResult(_, 0, _, _, _, _, _, _), UpdateWriteResult(_, 0, _, _, _, _, _, _)) => {
+              logger.debug("tamtams : not found : did not update user nor thing collection")
+              NotFound
+            }
+            case (_, _) => {
+              logger.error("tamtams : unspecified state")
+              throw new IllegalStateException()
+            }
+          }
+        }
+
+
+        // stick callbacks to write results to send an appropriate answer
+        futureInsertQueriesResults.map { okResult =>
+          verifyInsertsQueriesResults(okResult)
+        } recover {
+          // deal with exceptions related to database connection
+          case err: CommandError => {
+            logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
+            InternalServerError
+          }
+          case PrimaryUnavailableException => {
+            logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+            InternalServerError
+          }
         }
       }
-
     }
   }
 
@@ -391,37 +453,47 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
       logger.debug(s" tamtams : requesting removal of Thing with Id: ${thingId} from user with Id: ${userId}")
 
 
-      // todo : write a for comprehension here to chain future actions
-      // ask to remove our Thing to the database
+      // todo : maybe chain actions (to look for user first and then delete object ?)
+      // ask to remove our Thing from things collection
       val futureRemovedThing : Future[Option[Thing]] =
         removeThingFromThingsCollection(thingId,thingsJSONCollection)
-
+      // ask to remove the thingId from SellingThings array in users collection
       val futureRemoveThingIdResult: Future[WriteResult] =
         removeValueFromUserArray(userId, "sellingThings" ,thingId, usersJSONCollection)
 
       // combine both futures to check for errors :
       val futureQueriesResults: Future[(Option[Thing], WriteResult)] =
         futureRemovedThing.zip(futureRemoveThingIdResult)
-      /*
-      // helper function to check query results are as expected
-      def verifyQueryResults(queryResults : (Option[Thing], WriteResult)) : Status = {
-        queryResults match {
-          Some(thing),UpdateWriteResult(_,_,1,_,_,_,_,_)
 
-        val checkWriteResult = if (queryResults._2.nModified > 0) true
-        else false
-        checkWriteResult && checkOption
+      // helper function to check that query results are as expected
+      def verifyRemoveQueriesResults(queryResults: (Option[Thing], WriteResult)): Result = {
+        queryResults match {
+          case (Some(thing), UpdateWriteResult(_, _, 1, _, _, _, _, _)) => {
+            logger.debug(s"tamtams - deletion in user ${userId} and in thing db are sucessfull")
+            Ok
+          }
+          case (Some(thing), UpdateWriteResult(_, _, 0, _, _, _, _, _)) => {
+            logger.error(s"tamtams : thing deleted from thing collection but not found in user $userId")
+            InternalServerError
+          }
+          case (None, UpdateWriteResult(_, _, 1, _, _, _, _, _)) => {
+            logger.error("tamtams : thing deleted from user collection but not found in thing collection")
+            InternalServerError
+          }
+          case (None, UpdateWriteResult(_, _, 0, _, _, _, _, _)) => {
+            logger.debug("tamtams : not found : did not update user nor thing collection")
+            NotFound
+          }
+          case (_, _) => {
+            logger.error("tamtams : unspecified state")
+            throw new IllegalStateException()
+          }
+        }
       }
-      */
 
       // stick callbacks to write results to send an appropriate answer
-      futureQueriesResults.map { okResult => // of for the database but...
-        if (verifyQueryResults(okResult)) {
-        logger.debug(s" tamtams : sucessfull removal of from MongoDb from ${userId} : ${okResult}")
-        Ok
-        }
-        else
-          InternalServerError
+      futureQueriesResults.map { // results free of exceptions but still need to check databases operations results
+        okResult =>verifyRemoveQueriesResults(okResult)
       } recover {
         // deal with exceptions related to database connection
         case err: CommandError => {
@@ -509,6 +581,40 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
   // todo : get things near with database near functions
   def getThingsNear(lat: Double, lon: Double) = TODO
-  def getThings = TODO
+
+
+
+  def getThings =  Action.async {
+    request => {
+
+    logger.debug(s"tamtams : listing complete Things collection")
+    val allThings = thingsJSONCollection.flatMap(jscol => jscol.find(JsObject(Seq(("",JsNull)))).cursor[JsObject]().collect[Seq]().map(_.map(geoJsonThingToThing)))
+
+      allThings.map {
+        case listOfThings: Seq[Thing] => {
+          // sucessful future with good value
+          val jsonThingsList: JsValue = Json.toJson(listOfThings)
+          logger.debug(s"tamtams : returns things from mongo ${Json.prettyPrint(jsonThingsList)}")
+          Ok(jsonThingsList)
+        }
+        case _ => {
+          logger.error(s"tamtams : collection structure unknown ($thingsJSONCollection should be a collection of Things) ")
+          InternalServerError
+        }
+      } recover {
+        // deal with exceptions related to database connection
+        case err: CommandError => {
+          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
+          InternalServerError
+        }
+        case PrimaryUnavailableException => {
+          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+          InternalServerError
+        }
+      }
+    }
+  }
+
+
 
 }

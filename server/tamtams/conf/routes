@@ -19,7 +19,13 @@ DELETE     /users/:userId                         controllers.UserController.del
 # get the list of Things a user is selling
 GET /users/:userId/sellingThings                  controllers.ThingController.getSellingThings(userId : String)
 
+
+
 ###### Thing related routes ######
+
+# returns all Things from database
+GET     /things                                   controllers.ThingController.getThings
+GET     /things/                                   controllers.ThingController.getThings
 
 # returns a Thing from database
 GET     /things/:thingId                          controllers.ThingController.getThing(thingId: String)
