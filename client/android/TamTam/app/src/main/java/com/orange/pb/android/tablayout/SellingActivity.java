@@ -2,7 +2,6 @@ package com.orange.pb.android.tablayout;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.Matrix;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
@@ -56,7 +55,7 @@ public class SellingActivity extends AppCompatActivity {
         // Get bitmap.
         try {
             Bitmap bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), thumbnailURI);
-            mPictureIV = (ImageView) findViewById(R.id.selling_image_iv);
+            mPictureIV = (ImageView) findViewById(R.id.selling_picture_iv);
             mPictureIV.setImageBitmap(bitmap);
             // Restore state.
             mPictureIV.setRotation(mCurrentRotation);
