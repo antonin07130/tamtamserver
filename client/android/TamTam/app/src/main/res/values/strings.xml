@@ -15,4 +15,5 @@
     <string name="selling_current_loc">Position actuelle</string>
     <string name="selling_with_me_loc">Toujours avec moi</string>
     <string name="selling_OK">OK</string>
+    <string name="selling_rotate">Tourner</string>
 </resources>

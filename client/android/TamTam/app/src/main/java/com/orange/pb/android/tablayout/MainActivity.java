@@ -54,6 +54,8 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
     private final static String FILE_NAME_PREFIX = "TAMTAM_";
 
+    private final static String BUNDLE_KEY_PICTURE_PATH = "picturePath";
+
     public final static String SELLING_INTENT_EXTRA_URI = "thumbnailURI";
 
     private final static boolean AUTO_REFRESH = true;
@@ -65,7 +67,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     private static final int IMAGE_MAX_HEIGHT = 200;
 
     /**
-     * for tab handling.
+     * For tab handling.
      */
     private TabLayout mTabLayout;
     private ViewPager mViewPager;
@@ -89,6 +91,15 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         super.onCreate(savedInstanceState);
         Log.d(LOG_TAG, "onCreate()");
         setContentView(R.layout.activity_main);
+
+        // Restore state.
+        if (savedInstanceState != null) {
+            CharSequence cs = savedInstanceState.getCharSequence(BUNDLE_KEY_PICTURE_PATH);
+            if (cs != null) {
+                mCurrentPhotoPath = cs.toString();
+                AppLog.d(LOG_TAG, "restored currentPhotoPath: " + mCurrentPhotoPath);
+            }
+        }
 
         // Adding toolbar to the activity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -157,6 +168,22 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         stopLocationUpdates();
         mGoogleApiClient.disconnect();
         super.onStop();
+
+    }
+
+    /**
+     *
+     * One use case: the user wants to add a new thing. Our activity
+     * calls the camera activity. Then the user rotates the phone. Our
+     * activity will be destroyed, and re-created once the picture is
+     * accepted by the user. Consequence: our internal state has to be
+     * saved and then restored.
+     */
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+
+        super.onSaveInstanceState(outState);
+        outState.putCharSequence(BUNDLE_KEY_PICTURE_PATH, mCurrentPhotoPath);
 
     }
 
@@ -360,7 +387,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
                 photoFile = createImageFile();
             } catch (IOException ex) {
                 // Error occurred while creating the File.
-                // TODO
+                AppLog.d(LOG_TAG, "createImageFile() => " + ex.getMessage());
             }
             // Continue only if the File was successfully created.
             if (photoFile != null) {
@@ -379,7 +406,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
         if (requestCode == REQUEST_TAKE_PHOTO && resultCode == RESULT_OK) {
-            AppLog.d(LOG_TAG, "Calling setPic()");
+            AppLog.d(LOG_TAG, "Calling createThumbnailFile()");
             try {
                 Uri thumbnailURI = createThumbnailFile();
                 // Start the selling activity.
@@ -413,6 +440,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
         // Save file path.
         mCurrentPhotoPath = image.getAbsolutePath();
+        AppLog.d(LOG_TAG, "creatImageFile() - mCurrentPhotoPath: " + mCurrentPhotoPath);
         return image;
     }
 
@@ -430,6 +458,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         // Get the dimensions of the bitmap.
         BitmapFactory.Options bmOptions = new BitmapFactory.Options();
         bmOptions.inJustDecodeBounds = true;
+        AppLog.d(LOG_TAG, "current photo path: " + mCurrentPhotoPath);
         BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
         int photoW = bmOptions.outWidth;
         int photoH = bmOptions.outHeight;

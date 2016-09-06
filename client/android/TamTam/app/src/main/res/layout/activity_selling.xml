@@ -9,114 +9,135 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.orange.pb.android.tablayout.SellingActivity">
 
-    <TextView
+    <ScrollView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="@string/selling_sell"
-        android:id="@+id/selling_sell_tv"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true" />
+        android:id="@+id/selling_sv" >
 
-    <ImageView
-        android:layout_width="150dp"
-        android:layout_height="150dp"
-        android:id="@+id/selling_image_iv"
-        android:layout_below="@+id/selling_sell_tv"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="20dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/selling_category"
-        android:id="@+id/selling_category_tv"
-        android:layout_below="@+id/selling_image_iv"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:layout_marginTop="20dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/selling_price"
-        android:id="@+id/selling_price_tv"
-        android:layout_below="@+id/selling_category_tv"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/selling_description"
-        android:id="@+id/selling_description_tv"
-        android:layout_below="@+id/selling_price_tv"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/selling_location"
-        android:id="@+id/selling_location_tv"
-        android:layout_below="@+id/selling_description_tv"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true" />
-
-    <RadioGroup
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/selling_location_tv"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:id="@+id/selling_location_rg">
-
-        <RadioButton
-            android:layout_width="wrap_content"
+        <RelativeLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/selling_current_loc"
-            android:id="@+id/selling_current_loc_rb" />
+            android:id="@+id/internalLayout_rl">
 
-        <RadioButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/selling_with_me_loc"
-            android:id="@+id/selling_with_me_loc_rb" />
-    </RadioGroup>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceLarge"
+                android:text="@string/selling_sell"
+                android:id="@+id/selling_sell_tv"
+                android:layout_alignParentTop="true"
+                android:layout_centerHorizontal="true" />
 
-    <Spinner
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/selling_category_value_sp"
-        android:layout_alignBottom="@+id/selling_category_tv"
-        android:layout_alignLeft="@+id/selling_sell_tv"
-        android:layout_alignStart="@+id/selling_sell_tv"
-        android:layout_marginLeft="41dp"
-        android:layout_marginStart="41dp"
-        android:spinnerMode="dropdown"
-        android:entries="@array/categories_array"
-        android:focusable="false" />
+            <ImageView
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:id="@+id/selling_image_iv"
+                android:layout_below="@+id/selling_sell_tv"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentStart="true" />
 
-    <EditText
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:id="@+id/selling_price_value_tf"
-        android:layout_alignBottom="@+id/selling_price_tv"
-        android:layout_alignLeft="@+id/selling_category_value_sp"
-        android:layout_alignStart="@+id/selling_category_value_sp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:text="@string/selling_category"
+                android:id="@+id/selling_category_tv"
+                android:layout_below="@+id/selling_image_iv"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentStart="true"
+                android:layout_marginTop="20dp" />
 
-    <EditText
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:inputType="textMultiLine"
-        android:ems="10"
-        android:id="@+id/selling_description_value_tf"
-        android:layout_alignBottom="@+id/selling_description_tv"
-        android:layout_alignLeft="@+id/selling_price_value_tf"
-        android:layout_alignStart="@+id/selling_price_value_tf" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:text="@string/selling_price"
+                android:id="@+id/selling_price_tv"
+                android:layout_below="@+id/selling_category_tv"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentStart="true" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:text="@string/selling_description"
+                android:id="@+id/selling_description_tv"
+                android:layout_below="@+id/selling_price_tv"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentStart="true" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:text="@string/selling_location"
+                android:id="@+id/selling_location_tv"
+                android:layout_below="@+id/selling_description_tv"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentStart="true" />
+
+            <RadioGroup
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/selling_location_tv"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentStart="true"
+                android:id="@+id/selling_location_rg">
+
+                <RadioButton
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/selling_current_loc"
+                    android:id="@+id/selling_current_loc_rb" />
+
+                <RadioButton
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/selling_with_me_loc"
+                    android:id="@+id/selling_with_me_loc_rb" />
+            </RadioGroup>
+
+            <Spinner
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/selling_category_value_sp"
+                android:layout_alignBottom="@+id/selling_category_tv"
+                android:layout_alignLeft="@+id/selling_sell_tv"
+                android:layout_alignStart="@+id/selling_sell_tv"
+                android:layout_marginLeft="41dp"
+                android:layout_marginStart="41dp"
+                android:spinnerMode="dropdown"
+                android:entries="@array/categories_array"
+                android:focusable="false" />
+
+            <EditText
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/selling_price_value_tf"
+                android:layout_alignBottom="@+id/selling_price_tv"
+                android:layout_alignLeft="@+id/selling_category_value_sp"
+                android:layout_alignStart="@+id/selling_category_value_sp" />
+
+            <EditText
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:ems="10"
+                android:id="@+id/selling_description_value_tf"
+                android:layout_alignBottom="@+id/selling_description_tv"
+                android:layout_alignLeft="@+id/selling_price_value_tf"
+                android:layout_alignStart="@+id/selling_price_value_tf" />
+
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/selling_rotate"
+                android:id="@+id/selling_rotate_b"
+                android:layout_below="@+id/selling_sell_tv"
+                android:layout_alignRight="@+id/selling_category_value_sp"
+                android:layout_alignEnd="@+id/selling_category_value_sp" />
+        </RelativeLayout>
+    </ScrollView>
 
 </RelativeLayout>
