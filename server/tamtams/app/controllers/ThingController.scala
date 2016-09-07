@@ -56,9 +56,12 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
     case _ => logger.error(s" tamtams : MongoDb connection for {$this} error ${PrimaryUnavailableException.message}")
   }
   // register a callback on connection OK :
-  thingsJSONCollection.onSuccess{
-    case collection : JSONCollection => collection.indexesManager.ensure(thingIdIndex)
-    case _ => logger.debug(s" tamtams : MongoDb connection for {$this} OK")
+  thingsJSONCollection.onSuccess {
+    case collection: JSONCollection => {
+      collection.indexesManager.ensure(thingIdIndex)
+      logger.debug(s" tamtams : MongoDb connection for {$this} OK and geoIndex Ok")
+    }
+    case _ => logger.debug(s" tamtams : MongoDb connection for {$this} OK ???")
   }
 
 
@@ -581,8 +584,34 @@ class ThingController @Inject() (val reactiveMongoApi: ReactiveMongoApi)
 
   // todo : get things near with database near functions
   def getThingsNear(lat: Double, lon: Double) = TODO
+/*
+*
+* working mongoDb command in mongoshell:
 
+db.TamtamThings.find(
+{ position:
+{ $near :
+{ $geometry:
+{ type: "Point",  coordinates: [ 43.61664, 7.05334 ] },
+$minDistance: 0,
+$maxDistance: 5000
+}
+}
+}
+)
 
+* OR
+
+db.runCommand( {
+geoNear: "TamtamThings",
+                 near: { type: "Point" , coordinates: [ 43.61664, 7.05334 ]} ,
+                    spherical: true,
+            minDistance: 0,
+            maxDistance: 5000,
+               }
+)
+
+*/
 
   def getThings =  Action.async {
     request => {
