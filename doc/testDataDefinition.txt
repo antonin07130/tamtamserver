@@ -1,0 +1,56 @@
+user1:
+{
+"id":"vendeur01@systev.com",
+"interrestedIn":[],
+"sellingThings":[
+  {
+  "id":"Thing1",
+  "pict":"PictureEncode1",
+  "desc":"objet 1",
+  "price":{
+    "currency":468,
+    "price":10.10
+    },
+  "location":{
+    "lat":43.6166,
+    "lon":7.05289
+    },
+  "stuck":False
+  },
+  {
+  "id":"Thing2",
+  "pict":"PictureEncode2",
+  "desc":"objet 2",
+  "price":{
+    "currency":468,
+    "price":20.20
+    },
+  "location":{
+    "lat":43.61664,
+    "lon":7.05334
+    },
+  "stuck":False
+  },
+  {
+  "id":"Thing3",
+  "pict":"PictureEncode3",
+  "desc":"objet 3",
+  "price":{
+    "currency":468,
+    "price":30.30
+    },
+  "location":{
+    "lat":43.65839,
+    "lon":7.12153
+    },
+  "stuck":False
+  }
+  ]
+}
+
+user2:
+{
+"id":"acheteur01@systev.com",
+"interrestedIn":["Thing1","Thing2"],
+"sellingThings":[]
+}

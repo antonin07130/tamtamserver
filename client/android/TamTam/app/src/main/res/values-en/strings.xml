@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TamTam</string>
+    <string name="tab1_title">My things</string>
+    <string name="tab2_title">Around me</string>
+    <string name="tab3_title">Tracked things</string>
+    <string name="log_message">Log message</string>
+    <string name="tab_log">Log</string>
+    <string name="action_add">Offer for sale</string>
+    <string name="action_settings">Settings</string>
+</resources>
