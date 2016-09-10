@@ -1,10 +1,8 @@
-package com.orange.pb.android.tablayout;
+package com.orange.pb.android.tamtam;
 
-import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.app.FragmentStatePagerAdapter;
 
 /**
  * Created by pascalb on 8/17/16.

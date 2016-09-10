@@ -16,4 +16,6 @@
     <string name="selling_with_me_loc">Toujours avec moi</string>
     <string name="selling_OK">OK</string>
     <string name="selling_rotate">Tourner</string>
+    <string name="selling_cancel">Annuler</string>
+    <string name="selling_validate">Valider</string>
 </resources>

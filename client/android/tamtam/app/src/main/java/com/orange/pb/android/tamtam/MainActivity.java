@@ -1,4 +1,4 @@
-package com.orange.pb.android.tablayout;
+package com.orange.pb.android.tamtam;
 
 import android.content.Intent;
 import android.content.IntentSender;
@@ -21,7 +21,6 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.EditText;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -40,6 +39,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.security.Security;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -52,6 +52,9 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
     private final static String LOG_TAG = "MainActivity";
 
+    public final static int LOCATION_INTERVAL = 10000;         // 10s
+    public final static int LOCATION_FASTEST_INTERVAL = 5000;  // 5s
+
     private final static String FILE_NAME_PREFIX = "TAMTAM_";
 
     private final static String BUNDLE_KEY_PICTURE_PATH = "picturePath";
@@ -59,8 +62,6 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     public final static String SELLING_INTENT_EXTRA_URI = "thumbnailURI";
 
     private final static boolean AUTO_REFRESH = true;
-
-    private final static int REQUEST_CHECK_SETTINGS = 100;
 
     private static final int REQUEST_TAKE_PHOTO = 1;
     private static final int IMAGE_MAX_WIDTH = 200;
@@ -75,6 +76,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     /**
      * For location handling.
      */
+    private final static int REQUEST_CHECK_SETTINGS = 100;
     private GoogleApiClient mGoogleApiClient = null;
     private Location mCurrentLocation        = null;
     private LocationRequest mLocationRequest = null;
@@ -146,8 +148,8 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         }
         // Prepare a LocationRequest to later set location service configuration.
         mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(10000);  // 10s
-        mLocationRequest.setFastestInterval(5000);  // 5s
+        mLocationRequest.setInterval(LOCATION_INTERVAL);
+        mLocationRequest.setFastestInterval(LOCATION_FASTEST_INTERVAL);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
     }
@@ -217,24 +219,21 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     @Override
     public void onConnected(@Nullable Bundle bundle) {
 
-        AppLog.d(LOG_TAG, "onConnected()");
-        if (ActivityCompat.checkSelfPermission(this,
-                android.Manifest.permission.ACCESS_FINE_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this,
-                        android.Manifest.permission.ACCESS_COARSE_LOCATION) !=
-                        PackageManager.PERMISSION_GRANTED) {
-            AppLog.d(LOG_TAG, "Location permissions not granted");
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
-        }
-
+//        AppLog.d(LOG_TAG, "onConnected()");
+//        if (ActivityCompat.checkSelfPermission(this,
+//                android.Manifest.permission.ACCESS_FINE_LOCATION) !=
+//                PackageManager.PERMISSION_GRANTED) {
+//            AppLog.d(LOG_TAG, "Location permissions not granted");
+//            // TODO: Consider calling
+//            //    ActivityCompat#requestPermissions
+//            // here to request the missing permissions, and then overriding
+//            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+//            //                                          int[] grantResults)
+//            // to handle the case where the user grants the permission. See the documentation
+//            // for ActivityCompat#requestPermissions for more details.
+//            return;
+//        }
+//
         // Request to set our configuration.
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
                 .addLocationRequest(mLocationRequest);
@@ -280,8 +279,13 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         });
 
         // Get last location.
-        mCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(
-                mGoogleApiClient);
+        try {
+            mCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(
+                    mGoogleApiClient);
+        } catch (SecurityException e) {
+            AppLog.d(LOG_TAG, "onConnected() - " + e.getMessage());
+            mCurrentLocation = null;
+        }
         if (mCurrentLocation != null) {
             AppLog.d(LOG_TAG, "latitude:  " + mCurrentLocation.getLatitude());
             AppLog.d(LOG_TAG, "longitude: " + mCurrentLocation.getLongitude());
@@ -289,16 +293,31 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
     }
 
+    /**
+     *
+     */
     @Override
     public void onConnectionSuspended(int i) {
 
+        // TODO
+        AppLog.d(LOG_TAG, "onConnectionSuspended()");
+
     }
 
+    /**
+     *
+     */
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
+        // TODO
+        AppLog.d(LOG_TAG, "onConnectionFailed()");
+
     }
 
+    /**
+     *
+     */
     @Override
     public void onLocationChanged(Location location) {
 
@@ -308,32 +327,40 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
     }
 
+    /**
+     *
+     */
     protected void startLocationUpdates() {
 
-        // TODO:
-        // Permission checking below should not be required, as it is already performed
-        // at location settings time, above. Check how to remove it.
-        if (ActivityCompat.checkSelfPermission(this,
-                android.Manifest.permission.ACCESS_FINE_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this,
-                        android.Manifest.permission.ACCESS_COARSE_LOCATION) !=
-                        PackageManager.PERMISSION_GRANTED) {
-            AppLog.d(LOG_TAG, "Location permissions not granted");
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
+//        // TODO:
+//        // Permission checking below should not be required, as it is already performed
+//        // at location settings time, above. Check how to remove it.
+//        if (ActivityCompat.checkSelfPermission(this,
+//                android.Manifest.permission.ACCESS_FINE_LOCATION) !=
+//                PackageManager.PERMISSION_GRANTED) {
+//            AppLog.d(LOG_TAG, "Location permissions not granted");
+//            // TODO: Consider calling
+//            //    ActivityCompat#requestPermissions
+//            // here to request the missing permissions, and then overriding
+//            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+//            //                                          int[] grantResults)
+//            // to handle the case where the user grants the permission. See the documentation
+//            // for ActivityCompat#requestPermissions for more details.
+//            return;
+//        }
+//
+        try {
+            LocationServices.FusedLocationApi.requestLocationUpdates(
+                    mGoogleApiClient, mLocationRequest, this);
+        } catch (SecurityException e) {
+            AppLog.d(LOG_TAG, "startLocationUpdates() - " + e.getMessage());
         }
 
-        LocationServices.FusedLocationApi.requestLocationUpdates(
-                mGoogleApiClient, mLocationRequest, this);
     }
 
+    /**
+     *
+     */
     protected void stopLocationUpdates() {
 
         LocationServices.FusedLocationApi.removeLocationUpdates(

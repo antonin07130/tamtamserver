@@ -1,4 +1,4 @@
-package com.orange.pb.android.tablayout;
+package com.orange.pb.android.tamtam;
 
 import org.junit.Test;
 
