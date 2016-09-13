@@ -13,7 +13,7 @@ case class Price(currency: Short, price : Float)
 
 /**
   * this class represents a position
-  * to prepare GeoJson std, the order of positions should be lon, lat, [alt]
+  * to prepare GeoJson std, the order of positions should be lon, lat, [altitude]
   * @param lon latitude value
   * @param lat longitude value
   */
