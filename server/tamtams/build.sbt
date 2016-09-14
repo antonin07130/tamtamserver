@@ -15,8 +15,7 @@ libraryDependencies ++= Seq(
   cache,
   ws,
   "org.scalatestplus.play" %% "scalatestplus-play" % "1.5.1" % Test,
-  "org.reactivemongo" %% "play2-reactivemongo" % "0.11.14",
-   "org.reactivemongo" %% "reactivemongo-play-json" % "0.11.14"
+  "org.reactivemongo" %% "play2-reactivemongo" % "0.11.14"
 )
 
 resolvers ++= Seq(
