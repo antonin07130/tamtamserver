@@ -577,8 +577,11 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
 
   // todo : get things near with database near functions
-  def getThingsNear(lon: Double,lat: Double) = Action.async {
+  def getThingsNear(lon: Double,lat: Double, maxDistance : Option[Double], num : Option[Int]) = Action.async {
     request => {
+
+      val defaultMaxDistance : Double = 5000000
+      val defaultMaxNum : Int = 100
 
       val geoJsonPoint: JsObject = Json.obj(
         "type" -> "Point",
@@ -590,21 +593,50 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           "near" -> geoJsonPoint,
           "spherical" -> true,
           "minDistance" -> 0,
-          "maxDistance" -> 5000
+          "maxDistance" -> maxDistance.getOrElse[Double](defaultMaxDistance),
+          "num" -> num.getOrElse[Int](defaultMaxNum)
         )
 
       val runner = Command.run(JSONSerializationPack)
 
-      // we get a Future[BSONDocument]
-      val futureResult =
-        thingsJSONCollection.flatMap { collection =>
+      // we get a Future[JSONDocument]
+      val futureResult: Future[JsObject] =
+        thingsJSONCollection.flatMap { collection => {
+          logger.debug(s"tamtams : executing MongoCommand : $commandDoc")
           runner.apply(collection.db, runner.rawCommand(commandDoc)).one[JsObject]
         }
-      futureResult.map { result => logger.debug(s"${result}") } // result is a BSONDocument
-      // ...
+        }
 
+      val futureJsGeoResult: Future[JsArray] =
+        futureResult.map((jsAllResult: JsObject) => (jsAllResult \ "results").get.as[JsArray])
 
-      Future.successful(Ok)
+          /* full conversion not needed
+          .map((jsResultsArray: JsArray) => jsResultsArray.as[Seq[JsObject]]). // transform JsArray to Seq[JsObject]
+          map((seqJsObj: Seq[JsObject]) => seqJsObj. // tranform each JsObject to (distance:Double,thing:Thing)
+            map(jsObj => ((jsObj \ "dis").get.as[Double],(jsObj\"obj").get.as[Thing]))) //Future[Seq[]]
+          */
+
+      futureJsGeoResult.map {
+        case jsGeoResult: JsArray => {
+          // sucessful future with a supposedly good array...
+          logger.debug(s"tamtams : returns geoNear from mongo ${Json.prettyPrint(jsGeoResult)}")
+          Ok(jsGeoResult)
+        }
+        case _ => {
+          logger.error(s"tamtams : geoNear did not return expected array of dis and obj ")
+          InternalServerError
+        }
+      } recover {
+        case err: CommandError => {
+          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
+          InternalServerError
+        }
+        case PrimaryUnavailableException => {
+          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+          InternalServerError
+        }
+      }
+
     }
   }
 

@@ -26,8 +26,7 @@ GET /users/:userId/sellingThings                  controllers.ThingController.ge
 # returns all Things from database
 GET     /things                                   controllers.ThingController.getThings
 
-GET     /things/near/:lon/:lat                    controllers.ThingController.getThingsNear(lon: Double, lat: Double)
-
+GET     /things/near/:lon/:lat                    controllers.ThingController.getThingsNear(lon: Double, lat: Double, maxDistance : Option[Double], num : Option[Int])
 
 # returns a Thing from database
 GET     /things/:thingId                          controllers.ThingController.getThing(thingId: String)
