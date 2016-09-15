@@ -4,19 +4,16 @@ import java.util.NoSuchElementException
 import javax.inject._
 
 import models.{Position, Thing}
-
 import play.api.Logger
 import play.api.libs.json._
 import play.api.mvc._
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
 import reactivemongo.api.commands.{Command, CommandError, UpdateWriteResult, WriteResult}
 import reactivemongo.api.indexes.IndexType._
-import reactivemongo.bson.{BSONArray, BSONDocument}
 import reactivemongo.core.actors.Exceptions._
-import reactivemongo.play.json.{BSONFormats, _}
+import reactivemongo.play.json._
+import reactivemongo.play.json.collection.JsCursor._
 import reactivemongo.play.json.collection.{JSONCollection, JsCursor}
-import JsCursor._
-import reactivemongo.api.BSONSerializationPack
 import utils.ThingJsonConversion._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -319,7 +316,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
         // stick callbacks to write results to send an appropriate answer
         futureWriteThingResult.map { okResult =>
           logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult}")
-          Created.withHeaders((LOCATION, request.host + request.uri))
+          Created.withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
         } recover {
           // deal with exceptions related to database connection
           case err: CommandError if err.code.contains(11000) => {
@@ -370,27 +367,25 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
         val futureWriteThingResult: Future[WriteResult] = futureWriteThingIdResult.flatMap {
           case UpdateWriteResult(_, 0, 0, _, _, _, _, _) => // user was not found : do nothing and send fake write result
             Future.successful(UpdateWriteResult(true, 0, 0, Seq(), Seq(), None, None, None))
-          case UpdateWriteResult(true, 1, _, _, _, _, _, None) =>
-            addThingToThingsCollection(request.body, thingsJSONCollection) // user found
+          case UpdateWriteResult(true, 1, _, _, _, _, _, None) => // user found
+            addThingToThingsCollection(request.body, thingsJSONCollection) //update Things collection
           case _ => Future.failed(throw new IllegalStateException) // should not happen
         }
 
 
-        // ask to write our Thing to things collection
-        // val futureWriteThingResult: Future[WriteResult] =
-        //   addThingToThingsCollection(request.body,thingsJSONCollection)
 
         // combine both futures to check for errors :
         val futureInsertQueriesResults: Future[(WriteResult, WriteResult)] =
           futureWriteThingIdResult.zip(futureWriteThingResult)
 
+        //noinspection RedundantBlock
         // helper function to check that query results are as expected
         def verifyInsertsQueriesResults(queryResults: (WriteResult, WriteResult)): Result = {
           logger.debug(s"$queryResults")
           queryResults match {
             case (UpdateWriteResult(true, 1, 1, _, _, _, _, None), UpdateWriteResult(true, 1, _, _, _, _, _, None)) => {
               logger.debug("tamtams - insertion in user collection ok, in thing collection ok")
-              Created.withHeaders((LOCATION, request.host + request.uri))
+              Created.withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
             }
             case (UpdateWriteResult(true, 1, 0, _, _, _, _, _), UpdateWriteResult(true, 1, _, _, _, _, _, None)) => {
               logger.debug(s"tamtams : $thingId already in user collection, insert in thing collection OK")
@@ -556,9 +551,17 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     }
   }
 
-
+  /**
+    * This redirection is here to provide a coherent collection access API
+    * absolutely no check on values.
+    * @param userId not checked userId
+    * @param thingId id of the Thing to retrieve
+    * @return redirect to ressource location
+    */
   def getSellingThing(userId: String, thingId: String) = Action {
-    Redirect(routes.ThingController.getThing(thingId))
+    request => {
+      Redirect(request.host + routes.ThingController.getThing(thingId))
+    }
   }
 
       /**
@@ -618,12 +621,11 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           }
 
 
-      val futureJsDisAndThing = futureJsGeoResult.map(jsArrayToDisAndThing(_))
+      val futureJsDisAndThing = futureJsGeoResult.map(jsArrayToDisAndThing)
 
       futureJsDisAndThing.map {
-        case jsGeoResult: Seq[JsObject] => {
+        case jsGeoResult: Seq[JsObject] => {          // sucessful future with a supposedly good array...
           val jsre = Json.toJson(jsGeoResult)
-          // sucessful future with a supposedly good array...
           logger.debug(s"tamtams : returns geoNear from mongo ${Json.prettyPrint(jsre)}")
           Ok(jsre)
         }

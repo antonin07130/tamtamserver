@@ -6,7 +6,7 @@
 # can be used when modifying settings.
 #
 # You can include other configuration files in this main application.conf file:
-include "reactiveMongo.conf"
+#include "extra-config.conf"
 #
 # You can declare variables and substitute for them:
 #mykey = ${some.value}
@@ -70,8 +70,8 @@ play.modules {
 # https://www.playframework.com/documentation/latest/IDE
 # ~~~~~
 # Depending on your IDE, you can add a hyperlink for errors that will jump you
-# directly to the code location in the IDE in dev mode. The following line makes 
-# use of the IntelliJ IDEA REST interface: 
+# directly to the code location in the IDE in dev mode. The following line makes
+# use of the IntelliJ IDEA REST interface:
 play.editor="http://localhost:63342/api/file/?file=%s&line=%s"
 
 ## Internationalisation
@@ -83,6 +83,12 @@ play.editor="http://localhost:63342/api/file/?file=%s&line=%s"
 play.i18n {
   # The application languages
   langs = [ "en" ]
+
+  # Whether the language cookie should be secure or not
+  #langCookieSecure = true
+
+  # Whether the HTTP only attribute of the cookie should be set to true
+  #langCookieHttpOnly = true
 }
 
 ## Play HTTP settings
@@ -128,9 +134,28 @@ play.http {
   # https://www.playframework.com/documentation/latest/ScalaSessionFlash
   # ~~~~~
   session {
+    # Sets the cookie to be sent only over HTTPS.
+    #secure = true
+
+    # Sets the cookie to be accessed only by the server.
+    #httpOnly = true
+
+    # Sets the max-age field of the cookie to 5 minutes.
+    # NOTE: this only sets when the browser will discard the cookie. Play will consider any
+    # cookie value with a valid signature to be a valid session forever. To implement a server side session timeout,
+    # you need to put a timestamp in the session and check it at regular intervals to possibly expire it.
+    #maxAge = 300
+
+    # Sets the domain on the session cookie.
+    #domain = "example.com"
   }
 
   flash {
+    # Sets the cookie to be sent only over HTTPS.
+    #secure = true
+
+    # Sets the cookie to be accessed only by the server.
+    #httpOnly = true
   }
 }
 
@@ -330,7 +355,11 @@ db {
   #default.logSql=true
 }
 
-# reactiveMongo Database settings :
-include "reactiveMongo.conf"
 
+mongodb.uri = "mongodb://localhost/tamtamDb"
 
+mongo-async-driver {
+  akka {
+    loglevel = WARNING
+  }
+}
