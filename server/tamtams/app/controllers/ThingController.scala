@@ -4,6 +4,7 @@ import java.util.NoSuchElementException
 import javax.inject._
 
 import models.{Position, Thing}
+
 import play.api.Logger
 import play.api.libs.json._
 import play.api.mvc._
@@ -98,16 +99,14 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   // helper function to convert position node from GeoJson to Json
   // GeoJson position : position {"type":"Point","coordinates":[lon,lat]}
   // Json position : {"position" : { "lon": lon, "lat":lat }}
-  def geoJsonThingToThing(geoJsonThing: JsObject): Thing = {
+  def geoJsonThingToJsThing(geoJsonThing: JsObject): JsObject = {
     val position: Position = Position(
       (geoJsonThing \ "position" \ "coordinates") (0).as[Double],
       (geoJsonThing \ "position" \ "coordinates") (1).as[Double]
     )
     val jsonPos = Json.obj("position" -> position)
-    val jsonThing = geoJsonThing ++ jsonPos
-    jsonThing.as[Thing]
+    geoJsonThing ++ jsonPos
   }
-
   /**
     * This function adds a Thing to a collection
     * if not found this function creates a new Thing
@@ -141,7 +140,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
     logger.debug(s"tamtams : removing $thingId from database")
     collection.flatMap(jscol => jscol.findAndRemove(Json.obj("thingId" -> thingId)).map(_.result[JsObject]).map {
-      case Some(geoJsonThing) => Some(geoJsonThingToThing(geoJsonThing))
+      case Some(geoJsonThing) => Some(geoJsonThingToJsThing(geoJsonThing).as[Thing])
       case None => None
     })
   }
@@ -160,14 +159,14 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     val findThingQuery: JsObject = Json.obj("thingId" -> thingId)
     val futureFindThing: Future[Option[Thing]] =
       thingsJSONCollection.flatMap(jscol => jscol.find(findThingQuery).one[JsObject].map {
-        case Some(geoJsonThing) => Some(geoJsonThingToThing(geoJsonThing))
+        case Some(geoJsonThing) => Some(geoJsonThingToJsThing(geoJsonThing).as[Thing])
         case None => None
       })
     futureFindThing
   }
 
   /**
-    * Retrieve a sea of Things from a mongoDb collection
+    * Retrieve a Seq of Things from a mongoDb collection
     *
     * @param thingIds   Seq of ThingIds to retrieve
     * @param collection Mongo Collection in which we look for Things objects
@@ -179,7 +178,8 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     val query = Json.obj("thingId" -> Json.obj("$in" -> (thingIds)))
     def requestForThings(query: JsObject): Future[Seq[Thing]] = {
       logger.debug(s"tamtams : executing query in mongoDb : find ${query}")
-      thingsJSONCollection.flatMap(jscol => jscol.find(query).cursor[JsObject]().collect[Seq]().map(_.map(geoJsonThingToThing)))
+      thingsJSONCollection.flatMap(jscol => jscol.find(query).cursor[JsObject]().collect[Seq]().
+        map(_.map(geoJsonThingToJsThing(_).as[Thing])))
     }
     requestForThings(query)
   }
@@ -253,6 +253,9 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
       }
     }
   }
+
+
+
 
 
   // todo : put this code in a function taking a list of anything having an id and returning json or notfound
@@ -551,32 +554,27 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
         }
       }
     }
-
-
-
-    /*
-
-          val futureThingIdArray: Future[Seq[String]] = futureFindUser.map(_.get.sellingThings)
-
-          val jsonlistofThings: Future[JsValue] = futureThingIdArray.map(idList => Json.toJson(idList))
-
-          val futureListThings: Future[List[Thing]] =
-            usersJSONCollection.flatMap(jscol => jscol.find(
-
-
-          // tranform User sellingThings array to JSON
-          //
-          val futureThingsArray : Future[Seq[String]] = futureFindUser.map(_.get.sellingThings)
-      */
-    /*
-    // Fetch all the Parts that are linked to this Product
-    > sellingThings = db.Things.find({thingId: { $in : user.sellingThingss } } ).toArray() ;
-    */
-
   }
 
 
-  // todo : get things near with database near functions
+  def getSellingThing(userId: String, thingId: String) = Action {
+    Redirect(routes.ThingController.getThing(thingId))
+  }
+
+      /**
+    * This action retrieves things around a geographical position
+    * The return type is an array of distance and thing :
+    * [
+    * {dis:x,obj:Thing1},
+    * {dis:y,obj:Thing2},
+    * ...
+    * ]
+    * @param lon longitude
+    * @param lat latitude
+    * @param maxDistance maximum distance in meter
+    * @param num maximum number results
+    * @return
+    */
   def getThingsNear(lon: Double,lat: Double, maxDistance : Option[Double], num : Option[Int]) = Action.async {
     request => {
 
@@ -594,8 +592,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           "spherical" -> true,
           "minDistance" -> 0,
           "maxDistance" -> maxDistance.getOrElse[Double](defaultMaxDistance),
-          "num" -> num.getOrElse[Int](defaultMaxNum)
-        )
+          "num" -> num.getOrElse[Int](defaultMaxNum))
 
       val runner = Command.run(JSONSerializationPack)
 
@@ -610,17 +607,25 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
       val futureJsGeoResult: Future[JsArray] =
         futureResult.map((jsAllResult: JsObject) => (jsAllResult \ "results").get.as[JsArray])
 
-          /* full conversion not needed
-          .map((jsResultsArray: JsArray) => jsResultsArray.as[Seq[JsObject]]). // transform JsArray to Seq[JsObject]
-          map((seqJsObj: Seq[JsObject]) => seqJsObj. // tranform each JsObject to (distance:Double,thing:Thing)
-            map(jsObj => ((jsObj \ "dis").get.as[Double],(jsObj\"obj").get.as[Thing]))) //Future[Seq[]]
-          */
+      def jsArrayToDisAndThing(mongoJsArray : JsArray): Seq[JsObject] =
+        mongoJsArray.as[Seq[JsObject]]. // transform JsArray to Seq[JsObject]
+          map {          // tranform each JsObject to (dis:JsObject,thing:JsObject)
+          jsObj =>
+            Json.obj(//todo : simplify this transformation
+              "dis" -> (jsObj \ "dis").get.as[Double],
+              "obj" -> geoJsonThingToJsThing((jsObj \ "obj").get.as[JsObject]).as[Thing] //as[Thing] to remove _id field
+            )
+          }
 
-      futureJsGeoResult.map {
-        case jsGeoResult: JsArray => {
+
+      val futureJsDisAndThing = futureJsGeoResult.map(jsArrayToDisAndThing(_))
+
+      futureJsDisAndThing.map {
+        case jsGeoResult: Seq[JsObject] => {
+          val jsre = Json.toJson(jsGeoResult)
           // sucessful future with a supposedly good array...
-          logger.debug(s"tamtams : returns geoNear from mongo ${Json.prettyPrint(jsGeoResult)}")
-          Ok(jsGeoResult)
+          logger.debug(s"tamtams : returns geoNear from mongo ${Json.prettyPrint(jsre)}")
+          Ok(jsre)
         }
         case _ => {
           logger.error(s"tamtams : geoNear did not return expected array of dis and obj ")
@@ -640,40 +645,11 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     }
   }
 
-  /*
-  *
-  * working mongoDb command in mongoshell:
-
-  db.TamtamThings.find(
-  { position:
-  { $near :
-  { $geometry:
-  { type: "Point",  coordinates: [ 43.61664, 7.05334 ] },
-  $minDistance: 0,
-  $maxDistance: 5000
-  }
-  }
-  }
-  )
-
-  * OR
-
-  db.runCommand( {
-  geoNear: "TamtamThings",
-                   near: { type: "Point" , coordinates: [ 43.61664, 7.05334 ]} ,
-                      spherical: true,
-              minDistance: 0,
-              maxDistance: 5000,
-                 }
-  )
-
-  */
-
   def getThings = Action.async {
     request => {
 
       logger.debug(s"tamtams : listing complete Things collection")
-      val allThings = thingsJSONCollection.flatMap(jscol => jscol.find(JsObject(Seq(("", JsNull)))).cursor[JsObject]().collect[Seq]().map(_.map(geoJsonThingToThing)))
+      val allThings = thingsJSONCollection.flatMap(jscol => jscol.find(JsObject(Seq(("", JsNull)))).cursor[JsObject]().collect[Seq]().map(_.map(geoJsonThingToJsThing(_).as[Thing])))
 
       allThings.map {
         case listOfThings: Seq[Thing] => {

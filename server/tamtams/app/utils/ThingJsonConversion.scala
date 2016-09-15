@@ -36,8 +36,8 @@ object ThingJsonConversion {
     * JSON reader and validation for [[Position]]
     */
   implicit val locationReads: Reads[Position] = (
-    (JsPath \ "lat").read[Double] and
-      (JsPath \ "lon").read[Double]
+    (JsPath \ "lon").read[Double] and
+      (JsPath \ "lat").read[Double]
     )(Position.apply _)
 
   /**

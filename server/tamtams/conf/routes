@@ -19,6 +19,8 @@ DELETE     /users/:userId                         controllers.UserController.del
 # get the list of Things a user is selling
 GET /users/:userId/sellingThings                  controllers.ThingController.getSellingThings(userId : String)
 
+# get a thing the user is selling (or not : no verification on user)
+GET /users/:userId/sellingThings/:thingId         controllers.ThingController.getSellingThing(userId : String, thingId: String)
 
 
 ###### Thing related routes ######
