@@ -105,35 +105,35 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     */
   def putUser(userId: String) = Action.async(parse.json[User]) {
     request => {
-      if (userId != request.body.userId) {
+      if (userId == request.body.userId) {
+        logger.debug(s" tamtams : requesting insertion of User : ${request.body}")
+
+
+        // selector used in our MongoDb update (update or insert) request
+        def selector = Json.obj("userId" -> userId)
+
+        // ask to write our User to the database
+        val futureWriteUserResult: Future[WriteResult] =
+        usersJSONCollection.flatMap(jscol => jscol.update(selector, request.body, upsert = true))
+
+        // stick callbacks to write results to send an appropriate answer
+        futureWriteUserResult.map { okResult =>
+          logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult.message}")
+          Created.withHeaders((LOCATION, request.host + request.uri))
+        } recover {
+          // deal with exceptions related to database connection
+          case err: CommandError if err.code.contains(11000) => {
+            logger.error(s" tamtams : MongoDb connection error ${err.getMessage()}")
+            InternalServerError
+          }
+          case PrimaryUnavailableException => {
+            logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+            InternalServerError
+          }
+        }
+      } else {
         logger.debug(s" tamtams : userId in request is $userId is different from user.id in Json representation ${request.body.userId}")
         Future.successful(BadRequest)
-      }
-
-      logger.debug(s" tamtams : requesting insertion of User : ${request.body}")
-
-
-      // selector used in our MongoDb update (update or insert) request
-      def selector = Json.obj("userId" -> userId)
-
-      // ask to write our User to the database
-      val futureWriteUserResult: Future[WriteResult] =
-      usersJSONCollection.flatMap(jscol => jscol.update(selector, request.body, upsert = true))
-
-      // stick callbacks to write results to send an appropriate answer
-      futureWriteUserResult.map { okResult =>
-        logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult.message}")
-        Created.withHeaders((LOCATION, request.host + request.uri))
-      } recover {
-        // deal with exceptions related to database connection
-        case err: CommandError if err.code.contains(11000) => {
-          logger.error(s" tamtams : MongoDb connection error ${err.getMessage()}")
-          InternalServerError
-        }
-        case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
-        }
       }
     }
   }
