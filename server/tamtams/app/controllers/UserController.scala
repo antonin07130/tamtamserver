@@ -2,6 +2,7 @@ package controllers
 
 import javax.inject._
 
+import com.typesafe.config.ConfigFactory
 import play.api.Logger
 import play.api.mvc._
 import models.User
@@ -34,9 +35,15 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     * to TamtamUsers collection as a [[reactivemongo.api.Collection]]
     * this is a def not a val because it must be re-evaluated at each call
     */
+
+
+  // load collection names from configuration files
+  val usersCollectionName = ConfigFactory.load().getString("mongodb.usersCollection")
+  logger.debug(s"tamtams : reading collections from configuration : $usersCollectionName")
+
   def usersJSONCollection: Future[JSONCollection] =
   database.map(// once future database is completed :
-    connectedDb => connectedDb.collection[JSONCollection]("TamtamUsers")
+    connectedDb => connectedDb.collection[JSONCollection](usersCollectionName)
   )
 
   // register a callback on connection error :

@@ -18,6 +18,9 @@ import utils.ThingJsonConversion._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+import com.typesafe.config.ConfigFactory
+
+
 /**
   * This controller creates asynchronous Actions to handle HTTP requests
   * related to [[Thing]].
@@ -38,9 +41,14 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     * this is a def not a val because it must be re-evaluated at each call
     */
 
+  // load collection names from configuration files
+  val thingsCollectionName = ConfigFactory.load().getString("mongodb.thingsCollection")
+  val usersCollectionName = ConfigFactory.load().getString("mongodb.usersCollection")
+  logger.debug(s"tamtams : reading collections from configuration : $thingsCollectionName and $usersCollectionName")
+
   def thingsJSONCollection: Future[JSONCollection] =
     database.map(// once future database is completed :
-      connectedDb => connectedDb.collection[JSONCollection]("TamtamThings")
+      connectedDb => connectedDb.collection[JSONCollection](thingsCollectionName)
     )
 
   // create a 2d spherical index on "position" field containing GeoJson Position
@@ -68,7 +76,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     */
   def usersJSONCollection: Future[JSONCollection] =
     database.map(// once future database is completed :
-      connectedDb => connectedDb.collection[JSONCollection]("TamtamUsers")
+      connectedDb => connectedDb.collection[JSONCollection](usersCollectionName)
     )
 
   // register a callback on connection error :
@@ -590,7 +598,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
       val commandDoc =
         Json.obj(
-          "geoNear" -> "TamtamThings",
+          "geoNear" -> thingsCollectionName,
           "near" -> geoJsonPoint,
           "spherical" -> true,
           "minDistance" -> 0,
@@ -647,6 +655,11 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     }
   }
 
+  /**
+    * This action returns the complete Actions database as an array of Things
+    * @deprecated be careful : no limit on number of results : can stale db or server
+    * @return array of [[Thing]] s in Json
+    */
   def getThings = Action.async {
     request => {
 
