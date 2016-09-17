@@ -14,8 +14,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
@@ -29,7 +33,12 @@ import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStates;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 public class SellingActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
@@ -45,15 +54,30 @@ public class SellingActivity extends AppCompatActivity implements
     private final static float ROT_QUARTER = 90.0f;
     private float mCurrentRotation = 0.0f;
 
+    private Bitmap mPictureBitmap;
+
+    private EditText mDescriptionET;
+    private EditText mPriceET;
     private ImageView mPictureIV;
 
     /**
      * For location handling.
+     *
+     * mCurrentLocation can be null. In this case, thing's locationType will be set to notKnown.
+     * If mCurrentLocation is not null and mLocationAvailable is false, then thing's locationType
+     * will be set to lastKnown. If mLocationAvailable is true, locationType will be set to
+     * known.
      */
     private final static int REQUEST_CHECK_SETTINGS = 100;
     private GoogleApiClient mGoogleApiClient = null;
     private Location mCurrentLocation        = null;
     private LocationRequest mLocationRequest = null;
+    // Set to true when first new location is received. Set to false when location
+    // updates are stopped.
+    private boolean mLocationAvailable = false;
+
+    // HTTP request queue.
+    private RequestQueue mRequestQueue;
 
     /**
      *
@@ -69,6 +93,9 @@ public class SellingActivity extends AppCompatActivity implements
             mCurrentRotation = savedInstanceState.getFloat(BUNDLE_KEY_ROTATION);
         }
 
+        // Get references to UI elements.
+        mDescriptionET = (EditText)findViewById(R.id.selling_description_value_tf);
+        mPriceET = (EditText)findViewById(R.id.selling_price_value_tf);
         // Initialize UI.
         Button rotateB = (Button)findViewById(R.id.selling_rotate_b);
         rotateB.setOnClickListener(new View.OnClickListener() {
@@ -82,15 +109,95 @@ public class SellingActivity extends AppCompatActivity implements
                 mPictureIV.setRotation(mCurrentRotation);
             }
         });
+        Button validateB = (Button)findViewById(R.id.selling_validate_b);
+        validateB.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+                // Create JSON object for thing to be sold.
+                String priceStr = mPriceET.getText().toString();
+                float price;
+                try {
+                    price = Float.parseFloat(priceStr);
+                } catch (NumberFormatException e) {
+                    AppLog.d(LOG_TAG, "Bad price: " + e.getMessage());
+                    price = 0.0f;
+                }
+                double lon, lat;
+                String locationType;
+                if (mCurrentLocation == null) {
+                    lon = 0.0;
+                    lat = 0.0;
+                    locationType = MainActivity.LOC_NOT_KNOWN;
+                } else {
+                    lon = mCurrentLocation.getLongitude();
+                    lat = mCurrentLocation.getLatitude();
+                    if (mLocationAvailable) {
+                        locationType = MainActivity.LOC_KNOWN;
+                    } else {
+                        locationType = MainActivity.LOC_LAST_KNOWN;
+                    }
+                }
+                String thingId = MainActivity.UNIQUE_ID + Utils.getMsStr();
+                ThingJson jsonObject = new ThingJson(thingId,
+                        Utils.bitmapToJpeg(mPictureBitmap),
+                        mDescriptionET.getText().toString(),
+                        MainActivity.CURRENCY,
+                        price,
+                        lon, lat, locationType,
+                        false);
+                // Dump object.
+                boolean weLoop = true;
+                String str = jsonObject.getJson().toString();
+                int l = str.length();
+                if (l < 200) {
+                    AppLog.d(LOG_TAG, str);
+                } else {
+                    int i = 0;
+                    String subStr;
+                    while (weLoop) {
+                        subStr = str.substring(i * 200, (i + 1) * 200);
+                        AppLog.d(LOG_TAG, subStr);
+                        i += 1;
+                        if ((i + 1) * 200 > l) {
+                            subStr = str.substring(i * 200, l);
+                            AppLog.d(LOG_TAG, subStr);
+                            weLoop = false;
+                        }
+                    }
+                }
+                // Create request for thing creation.
+                Response.Listener<JSONObject> responseListener = new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        AppLog.d(LOG_TAG, "Received response: " + response.toString());
+                    }
+                };
+                Response.ErrorListener errorListener = new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        AppLog.d(LOG_TAG, "Error: " + error.getMessage());
+                    }
+                };
+                ThingRequest request = new ThingRequest(
+                        MainActivity.SERVER_URL + MainActivity.THINGS_URL + thingId,
+                        jsonObject.getJson(),
+                        responseListener,
+                        errorListener);
+                mRequestQueue.add(request.getRequest());
+
+            }
+        });
 
         // Get URI of thumbnail.
         Intent intent = getIntent();
-        Uri thumbnailURI = Uri.parse(intent.getStringExtra(MainActivity.SELLING_INTENT_EXTRA_URI));
+        Uri pictureUri = Uri.parse(intent.getStringExtra(MainActivity.SELLING_INTENT_EXTRA_URI));
         // Get bitmap.
         try {
-            Bitmap bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), thumbnailURI);
+            mPictureBitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(),
+                    pictureUri);
             mPictureIV = (ImageView) findViewById(R.id.selling_picture_iv);
-            mPictureIV.setImageBitmap(bitmap);
+            mPictureIV.setImageBitmap(mPictureBitmap);
             // Restore state.
             mPictureIV.setRotation(mCurrentRotation);
 
@@ -114,6 +221,10 @@ public class SellingActivity extends AppCompatActivity implements
         mLocationRequest.setInterval(MainActivity.LOCATION_INTERVAL);
         mLocationRequest.setFastestInterval(MainActivity.LOCATION_FASTEST_INTERVAL);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+        // Get HTTP request queue.
+        mRequestQueue = AppRequestQueue.getInstance(this.getApplicationContext()).
+                getRequestQueue();
 
     }
 
@@ -162,7 +273,7 @@ public class SellingActivity extends AppCompatActivity implements
     @Override
     public void onConnected(@Nullable Bundle bundle) {
 
-//        AppLog.d(LOG_TAG, "onConnected()");
+        AppLog.d(LOG_TAG, "onConnected()");
 //        if (ActivityCompat.checkSelfPermission(this,
 //                android.Manifest.permission.ACCESS_FINE_LOCATION) !=
 //                PackageManager.PERMISSION_GRANTED) {
@@ -265,6 +376,7 @@ public class SellingActivity extends AppCompatActivity implements
     public void onLocationChanged(Location location) {
 
         mCurrentLocation = location;
+        mLocationAvailable = true;
         AppLog.d(LOG_TAG, "new latitude: " + location.getLatitude());
         AppLog.d(LOG_TAG, "new longitude: " + location.getLongitude());
 
@@ -308,6 +420,7 @@ public class SellingActivity extends AppCompatActivity implements
 
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);
+        mLocationAvailable = false;
 
     }
 

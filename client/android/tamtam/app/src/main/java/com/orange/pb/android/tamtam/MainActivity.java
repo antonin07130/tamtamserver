@@ -52,6 +52,20 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
     private final static String LOG_TAG = "MainActivity";
 
+    // Location types for things.
+    public final static String LOC_KNOWN      = "known";
+    public final static String LOC_LAST_KNOWN = "lastKnown";
+    public final static String LOC_NOT_KNOWN  = "notKnown";
+
+    // Server URL.
+    public final static String SERVER_URL = "http://systev.com:5003";
+    public final static String THINGS_URL = "/things/";
+
+    // TODO - to be replaced by a real unique id.
+    public final static String UNIQUE_ID = "TelephonePascal";
+    // TODO - to be replaced by local currency.
+    public final static int CURRENCY = 978;
+
     public final static int LOCATION_INTERVAL = 10000;         // 10s
     public final static int LOCATION_FASTEST_INTERVAL = 5000;  // 5s
 
@@ -219,7 +233,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     @Override
     public void onConnected(@Nullable Bundle bundle) {
 
-//        AppLog.d(LOG_TAG, "onConnected()");
+        AppLog.d(LOG_TAG, "onConnected()");
 //        if (ActivityCompat.checkSelfPermission(this,
 //                android.Manifest.permission.ACCESS_FINE_LOCATION) !=
 //                PackageManager.PERMISSION_GRANTED) {
