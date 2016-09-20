@@ -1,7 +1,7 @@
 package utils
 
 import models.{Position, Price, Thing, User}
-import play.api.libs.json.{JsPath, Json, OWrites, Reads}
+import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 /**
@@ -27,8 +27,6 @@ object ThingJsonConversion {
     * converting [[Thing]] to Json
     */
   implicit val thingWrites = Json.writes[Thing]
-
-
 
 
 
@@ -59,4 +57,44 @@ object ThingJsonConversion {
       (JsPath \"position").read[Position] and
       (JsPath \"stuck").read[Boolean]
     )(Thing.apply _)
+
+
+  /**
+    * Helper function to convert a [[Thing]] to a JsObject having
+    * position encoded in GeoJson
+    * @param thing
+    * @return
+    */
+  def thingToGeoJsonThing(thing: Thing): JsObject = {
+    // GeoJson position : position {"type":"Point","coordinates":[lon,lat]}
+    val geoJsonPosition: JsObject = Json.obj(
+      "position" -> Json.obj(
+        "type" -> "Point",
+        "coordinates" -> Seq(thing.position.lon, thing.position.lat)))
+    // convert our thing to Json (using standards implicit writers)
+    val thingJson: JsObject = Json.toJson(thing).as[JsObject]
+    // merge thing json and geoJson JsObject. That updates position key with our new geoJson position
+    thingJson ++ geoJsonPosition
+  }
+
+  /**
+    * Helper function to convert JsObject representations of [[Thing]]
+    * @param geoJsonThing a [[JsObject]] representing a
+    * [[Thing]] with position encoded in GeoJson :
+    * GeoJson : {position : {"type" : "Point", "coordinates" : [lon, lat]}}
+    * @return [[JsObject]] representing a [[Thing]] with position encoded
+    * as Json position : {"position" : { "lon": lon, "lat":lat }}
+    */
+  // helper function to convert position node from GeoJson to Json
+  // GeoJson position : position {"type":"Point","coordinates":[lon,lat]}
+  // Json position : {"position" : { "lon": lon, "lat":lat }}
+  def geoJsonThingToJsThing(geoJsonThing: JsObject): JsObject = {
+    val position: Position = Position(
+      (geoJsonThing \ "position" \ "coordinates") (0).as[Double],
+      (geoJsonThing \ "position" \ "coordinates") (1).as[Double]
+    )
+    val jsonPos = Json.obj("position" -> position)
+    geoJsonThing ++ jsonPos
+  }
+
 }
