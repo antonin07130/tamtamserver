@@ -21,6 +21,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.typesafe.config.ConfigFactory
 
 
+import database.ThingRepo
+
 /**
   * This controller creates asynchronous Actions to handle HTTP requests
   * related to [[Thing]].
@@ -34,6 +36,34 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
   // defines a named logger for this class
   val logger: Logger = Logger("application." + this.getClass())
+
+  val thingRepo = new ThingRepo(reactiveMongoApi)
+
+
+  //todo : convert user collection to userRepo
+  //******************************************************
+  // load collection names from configuration files
+  val usersCollectionName = ConfigFactory.load().getString("mongodb.usersCollection")
+  logger.debug(s"tamtams : reading collections from configuration : $thingRepo.thingsCollectionName and $usersCollectionName")
+
+  /**
+    * Connects to local database using [[database]] and
+    * to TamtamUsers collection as a [[reactivemongo.api.Collection]]
+    * this is a def not a val because it must be re-evaluated at each call
+    */
+  def usersJSONCollection: Future[JSONCollection] =
+  database.map(// once future database is completed :
+    connectedDb => connectedDb.collection[JSONCollection](usersCollectionName)
+  )
+
+  // register a callback on connection error :
+  usersJSONCollection.onFailure {
+    case _ => logger.error(s" tamtams : MongoDb connection for {$this} error ${PrimaryUnavailableException.message}")
+  }
+  // register a callback on connection OK :
+  usersJSONCollection.onSuccess {
+    case _ => logger.debug(s" tamtams : MongoDb connection for {$this} OK")
+  }
 
   /**
     * Add a newValue to an array of [[String]]s within a user object
@@ -104,11 +134,9 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     }
   }
 
+  //******************************************************
 
 
-
-
-  // todo : put this code in a function taking a list of anything having an id and returning json or notfound
   /**
     * Create an async Action to return a json object response
     * containing the [[Thing]] selected byuserId.
@@ -124,16 +152,20 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   def getThing(thingId: String) = Action.async {
     request => {
 
-      val futureFindThing = getThingFromThingsCollection(thingId, usersJSONCollection)
+      val futureFindThing = thingRepo.findObjects(List(thingId))
       futureFindThing.map {
-        case Some(thing) => {
+        case thing :: Nil => {
           val jsonThing: JsValue = Json.toJson(thing)
           logger.debug(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonThing)}")
           Ok(jsonThing)
         }
-        case None => {
+        case Nil => {
           logger.debug(s"tamtams : thing ${thingId} Not found ")
           NotFound
+        }
+        case _ :: _ :: xs => {
+          logger.error(s"tamtams : found 2 or more elements matching this id")
+          InternalServerError
         }
       } recover {
         // deal with exceptions related to database connection
@@ -164,7 +196,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
         logger.debug(s" tamtams : requesting insertion of Thing : ${request.body}")
 
         // ask to write our Thing to the database
-        val futureWriteThingResult = addThingToThingsCollection(request.body, thingsJSONCollection)
+        val futureWriteThingResult = thingRepo.upsertObject(request.body)
 
         // stick callbacks to write results to send an appropriate answer
         futureWriteThingResult.map { okResult =>
@@ -214,14 +246,14 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
       else {
         // ask to write our thingId to user collection in sellingThings array
         val futureWriteThingIdResult: Future[WriteResult] =
-          addValueToUserArray(userId, "sellingThings", request.body.thingId, usersJSONCollection)
+        addValueToUserArray(userId, "sellingThings", request.body.thingId, usersJSONCollection)
 
         // when user is updated, ask to update thing database (hope that execution order is conserved !)
         val futureWriteThingResult: Future[WriteResult] = futureWriteThingIdResult.flatMap {
           case UpdateWriteResult(_, 0, 0, _, _, _, _, _) => // user was not found : do nothing and send fake write result
             Future.successful(UpdateWriteResult(true, 0, 0, Seq(), Seq(), None, None, None))
           case UpdateWriteResult(true, 1, _, _, _, _, _, None) => // user found
-            addThingToThingsCollection(request.body, thingsJSONCollection) //update Things collection
+            thingRepo.upsertObject(request.body) //update Things collection
           case _ => Future.failed(throw new IllegalStateException) // should not happen
         }
 
@@ -229,10 +261,11 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
         // combine both futures to check for errors :
         val futureInsertQueriesResults: Future[(WriteResult, WriteResult)] =
-          futureWriteThingIdResult.zip(futureWriteThingResult)
+        futureWriteThingIdResult.zip(futureWriteThingResult)
 
         //noinspection RedundantBlock
         // helper function to check that query results are as expected
+        // todo : correct writeresult checks in this function
         def verifyInsertsQueriesResults(queryResults: (WriteResult, WriteResult)): Result = {
           logger.debug(s"$queryResults")
           queryResults match {
@@ -302,32 +335,33 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
       // todo : maybe chain actions (to look for user first and then delete object ?)
       // ask to remove our Thing from things collection
-      val futureRemovedThing: Future[Option[Thing]] =
-        removeThingFromThingsCollection(thingId, thingsJSONCollection)
+      val futureRemovedThing: Future[WriteResult] =
+      thingRepo.removeObjects(List(thingId))
       // ask to remove the thingId from SellingThings array in users collection
       val futureRemoveThingIdResult: Future[WriteResult] =
-        removeValueFromUserArray(userId, "sellingThings", thingId, usersJSONCollection)
+      removeValueFromUserArray(userId, "sellingThings", thingId, usersJSONCollection)
 
       // combine both futures to check for errors :
-      val futureQueriesResults: Future[(Option[Thing], WriteResult)] =
-        futureRemovedThing.zip(futureRemoveThingIdResult)
+      val futureQueriesResults: Future[(WriteResult, WriteResult)] =
+      futureRemovedThing.zip(futureRemoveThingIdResult)
 
+      // todo : correct writeresult checks in this function
       // helper function to check that query results are as expected
-      def verifyRemoveQueriesResults(queryResults: (Option[Thing], WriteResult)): Result = {
+      def verifyRemoveQueriesResults(queryResults: (WriteResult, WriteResult)): Result = {
         queryResults match {
-          case (Some(thing), UpdateWriteResult(_, _, 1, _, _, _, _, _)) => {
+          case (_, UpdateWriteResult(_, _, 1, _, _, _, _, _)) => {
             logger.debug(s"tamtams - deletion in user ${userId} and in thing db are sucessfull")
             Ok
           }
-          case (Some(thing), UpdateWriteResult(_, _, 0, _, _, _, _, _)) => {
+          case (_, UpdateWriteResult(_, _, 0, _, _, _, _, _)) => {
             logger.error(s"tamtams : thing deleted from thing collection but not found in user $userId")
             InternalServerError
           }
-          case (None, UpdateWriteResult(_, _, 1, _, _, _, _, _)) => {
+          case (_, UpdateWriteResult(_, _, 1, _, _, _, _, _)) => {
             logger.error("tamtams : thing deleted from user collection but not found in thing collection")
             InternalServerError
           }
-          case (None, UpdateWriteResult(_, _, 0, _, _, _, _, _)) => {
+          case (_, UpdateWriteResult(_, _, 0, _, _, _, _, _)) => {
             logger.debug("tamtams : not found : did not update user nor thing collection")
             NotFound
           }
@@ -370,7 +404,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
       // get the list of things (first get array of Ids, then request for ids in things collection)
       val listOfThings: Future[Seq[Thing]] = getArrayFromUser(userId, "sellingThings", usersJSONCollection).flatMap {
-        case Some(thingIds) => getListOfThingsFromThingsCollection(thingIds, usersJSONCollection)
+        case Some(thingIds) => thingRepo.findObjects(thingIds)
         case None => throw new NoSuchElementException("No result from user request")
       }
 
@@ -382,7 +416,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           Ok(jsonThingsList)
         }
         case _ => {
-          logger.error(s"tamtams : collection structure unknown ($thingsJSONCollection should be a collection of Things) ")
+          logger.error(s"tamtams : collection structure unknown ($thingRepo.thingsJSONCollection should be a collection of Things) ")
           InternalServerError
         }
       } recover {
@@ -404,10 +438,12 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     }
   }
 
+
   /**
     * This redirection is here to provide a coherent collection access API
     * absolutely no check on values.
-    * @param userId not checked userId
+    *
+    * @param userId  not checked userId
     * @param thingId id of the Thing to retrieve
     * @return redirect to ressource location
     */
@@ -417,7 +453,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     }
   }
 
-      /**
+  /**
     * This action retrieves things around a geographical position
     * The return type is an array of distance and thing :
     * [
@@ -425,59 +461,21 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     * {dis:y,obj:Thing2},
     * ...
     * ]
-    * @param lon longitude
-    * @param lat latitude
+    *
+    * @param lon         longitude
+    * @param lat         latitude
     * @param maxDistance maximum distance in meter
-    * @param num maximum number results
+    * @param num         maximum number results
     * @return
     */
-  def getThingsNear(lon: Double,lat: Double, maxDistance : Option[Double], num : Option[Int]) = Action.async {
+  def getThingsNear(lon: Double, lat: Double, maxDistance: Option[Double], num: Option[Int]) = Action.async {
     request => {
 
-      val defaultMaxDistance : Double = 5000000
-      val defaultMaxNum : Int = 100
-
-      val geoJsonPoint: JsObject = Json.obj(
-        "type" -> "Point",
-        "coordinates" -> Seq(lon, lat))
-
-      val commandDoc =
-        Json.obj(
-          "geoNear" -> thingsCollectionName,
-          "near" -> geoJsonPoint,
-          "spherical" -> true,
-          "minDistance" -> 0,
-          "maxDistance" -> maxDistance.getOrElse[Double](defaultMaxDistance),
-          "num" -> num.getOrElse[Int](defaultMaxNum))
-
-      val runner = Command.run(JSONSerializationPack)
-
-      // we get a Future[JSONDocument]
-      val futureResult: Future[JsObject] =
-        thingsJSONCollection.flatMap { collection => {
-          logger.debug(s"tamtams : executing MongoCommand : $commandDoc")
-          runner.apply(collection.db, runner.rawCommand(commandDoc)).one[JsObject]
-        }
-        }
-
-      val futureJsGeoResult: Future[JsArray] =
-        futureResult.map((jsAllResult: JsObject) => (jsAllResult \ "results").get.as[JsArray])
-
-      def jsArrayToDisAndThing(mongoJsArray : JsArray): Seq[JsObject] =
-        mongoJsArray.as[Seq[JsObject]]. // transform JsArray to Seq[JsObject]
-          map {          // tranform each JsObject to (dis:JsObject,thing:JsObject)
-          jsObj =>
-            Json.obj(//todo : simplify this transformation
-              "dis" -> (jsObj \ "dis").get.as[Double],
-              "obj" -> geoJsonThingToJsThing((jsObj \ "obj").get.as[JsObject]).as[Thing] //as[Thing] to remove _id field
-            )
-          }
-
-
-      val futureJsDisAndThing = futureJsGeoResult.map(jsArrayToDisAndThing)
+      val futureJsDisAndThing = thingRepo.findNear(lon, lat, maxDistance, num)
 
       futureJsDisAndThing.map {
-        case jsGeoResult: Seq[JsObject] => {          // sucessful future with a supposedly good array...
+        case jsGeoResult: Seq[JsObject] => {
+          // sucessful future with a supposedly good array...
           val jsre = Json.toJson(jsGeoResult)
           logger.debug(s"tamtams : returns geoNear from mongo ${Json.prettyPrint(jsre)}")
           Ok(jsre)
@@ -487,6 +485,10 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           InternalServerError
         }
       } recover {
+        case err: NoSuchElementException => {
+          logger.error(s"tamtams Things Collection not found : ${err.getMessage()}")
+          InternalServerError
+        }
         case err: CommandError => {
           logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
           InternalServerError
@@ -502,6 +504,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
   /**
     * This action returns the complete Actions database as an array of Things
+    *
     * @deprecated be careful : no limit on number of results : can stale db or server
     * @return array of [[Thing]] s in Json
     */
@@ -509,7 +512,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     request => {
 
       logger.debug(s"tamtams : listing complete Things collection")
-      val allThings = thingsJSONCollection.flatMap(jscol => jscol.find(JsObject(Seq(("", JsNull)))).cursor[JsObject]().collect[Seq]().map(_.map(geoJsonThingToJsThing(_).as[Thing])))
+      val allThings = thingRepo.findObjects()
 
       allThings.map {
         case listOfThings: Seq[Thing] => {
@@ -519,7 +522,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           Ok(jsonThingsList)
         }
         case _ => {
-          logger.error(s"tamtams : collection structure unknown ($thingsJSONCollection should be a collection of Things) ")
+          logger.error(s"tamtams : collection structure unknown (${thingRepo.thingsJSONCollection} should be a collection of Things) ")
           InternalServerError
         }
       } recover {
