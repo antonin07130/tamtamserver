@@ -3,6 +3,7 @@ package controllers
 import javax.inject._
 
 import com.typesafe.config.ConfigFactory
+import database.UserRepo
 import play.api.Logger
 import play.api.mvc._
 import models.User
@@ -10,7 +11,7 @@ import utils.UserJsonConversion._
 import play.api.libs.json._
 import play.libs.Json._
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
-import reactivemongo.api.commands.{CommandError, WriteResult}
+import reactivemongo.api.commands._
 import reactivemongo.api.collections._
 import reactivemongo.core.actors.Exceptions.PrimaryUnavailableException
 import reactivemongo.play.json.collection.JSONCollection
@@ -30,30 +31,8 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   // defines a named logger for this class
   val logger: Logger = Logger("application." + this.getClass())
 
-  /**
-    * Connects to local database using [[database]] and
-    * to TamtamUsers collection as a [[reactivemongo.api.Collection]]
-    * this is a def not a val because it must be re-evaluated at each call
-    */
-
-
-  // load collection names from configuration files
-  val usersCollectionName = ConfigFactory.load().getString("mongodb.usersCollection")
-  logger.debug(s"tamtams : reading collections from configuration : $usersCollectionName")
-
-  def usersJSONCollection: Future[JSONCollection] =
-  database.map(// once future database is completed :
-    connectedDb => connectedDb.collection[JSONCollection](usersCollectionName)
-  )
-
-  // register a callback on connection error :
-  usersJSONCollection.onFailure {
-    case _ => logger.error(s" tamtams : MongoDb connection for {$this} error ${PrimaryUnavailableException.message}")
-  }
-  // register a callback on connection OK :
-  usersJSONCollection.onSuccess {
-    case _ => logger.debug(s" tamtams : MongoDb connection for {$this} OK")
-  }
+  // connect to mongoDb collection of users
+  val userRepo = new UserRepo(reactiveMongoApi)
 
 
   // todo : put this code in a function taking a list of anything having an id and returning json or notfound
@@ -72,20 +51,25 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     */
   def getUser(userId: String) = Action.async {
     request => {
-
-      val findUserQuery: JsObject = Json.obj("userId" -> userId)
-      val futureFindUser: Future[Option[User]] =
-        usersJSONCollection.flatMap(jscol => jscol.find(findUserQuery).one[User])
-
-      futureFindUser.map {
-        case Some(user) => {
-          val jsonUser: JsValue = Json.toJson(user)
-          logger.debug(s"tamtams : returns object from mongo ${Json.prettyPrint(jsonUser)}")
-          Ok(jsonUser)
+      userRepo.findObjects(List(userId)).map {
+        case user :: Nil => {
+          val jsUser: JsValue = Json.toJson(user)
+          logger.debug(s"tamtams : returns object from mongo ${Json.prettyPrint(jsUser)}")
+          Ok(jsUser)
         }
-        case None => {
-          logger.debug(s"tamtams : user ${userId} Not found ")
+        case Nil => {
+          logger.debug(s"tamtams : thing ${userId} Not found ")
           NotFound
+        }
+        case _ :: _ :: xs => {
+          logger.error("tamtams : found 2 or more users matching this id")
+          throw new IllegalStateException
+          InternalServerError("tamtams : found 2 or more users matching this id")
+        }
+        case _ =>{
+          logger.error("tamtams : illegal state trying to getUser")
+          throw new IllegalStateException
+          InternalServerError("tamtams : illegal state trying to getUser (unknown returned object)")
         }
       } recover {
         // deal with exceptions related to database connection
@@ -115,18 +99,20 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
       if (userId == request.body.userId) {
         logger.debug(s" tamtams : requesting insertion of User : ${request.body}")
 
-
-        // selector used in our MongoDb update (update or insert) request
-        def selector = Json.obj("userId" -> userId)
-
-        // ask to write our User to the database
-        val futureWriteUserResult: Future[WriteResult] =
-        usersJSONCollection.flatMap(jscol => jscol.update(selector, request.body, upsert = true))
-
-        // stick callbacks to write results to send an appropriate answer
-        futureWriteUserResult.map { okResult =>
-          logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult.message}")
-          Created.withHeaders((LOCATION, request.host + request.uri))
+        userRepo.upsertObject(request.body).map {
+          case UpdateWriteResult(true, 1, 0, _, _, _, _, _) => {
+            logger.debug(s" tamtams : new user $userId created")
+            Created.withHeaders((LOCATION, request.host + request.uri))
+          }
+          case UpdateWriteResult(true, 1, 1, List(), List(), None, None, None) => {
+            logger.debug(s" tamtams : user updated")
+            Ok.withHeaders((LOCATION, request.host + request.uri))
+          }
+          case _ =>{
+            logger.error(s"tamtams : illegal state trying to addUser ")
+            throw new IllegalStateException
+            InternalServerError("tamtams : illegal state trying to putUser (unknown returned result)")
+          }
         } recover {
           // deal with exceptions related to database connection
           case err: CommandError if err.code.contains(11000) => {
@@ -159,21 +145,19 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     */
   def deleteUser(userId: String) = Action.async {
     request => {
-
-      val findUserQuery: JsObject = Json.obj("userId" -> userId)
-
-      val futureRemovedUser: Future[Option[User]] =
-        usersJSONCollection.flatMap(jscol => jscol.findAndRemove(findUserQuery).map(_.result[User]))
-
-      futureRemovedUser.map {//future was successfull
-        case Some(user) => {// check option contents
-          val jsonUser: JsValue = Json.toJson(user)
-          logger.debug(s"tamtams : removed object from mongo ${Json.prettyPrint(jsonUser)}")
+      userRepo.removeObjects(List(userId)).map {
+        case DefaultWriteResult(true,1,_,_,_,_) => {// check option contents
+          logger.debug(s"tamtams : removed object from mongo ${userId}")
           Ok
         }
-        case None => {
+        case DefaultWriteResult(true,0,_,_,_,_) => {
           logger.debug(s"tamtams : user ${userId} Not found ")
           NotFound
+        }
+        case _ =>{
+          logger.error(s"tamtams : illegal state trying to deleteUser ")
+          throw new IllegalStateException
+          InternalServerError("tamtams : illegal state trying to deleteUser (unknown returned object)")
         }
       } recover {//future failed
         // deal with exceptions related to database connection
@@ -184,7 +168,5 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
       }
     }
   }
-
-
 
 }
