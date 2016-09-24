@@ -29,7 +29,7 @@ public class ThingJson {
             priceJson.put("price", price);
             locationJson.put("lon", lon);
             locationJson.put("lat", lat);
-            locationJson.put("locType", locationType);
+            //locationJson.put("locType", locationType);
             mJsonObject.put("idThing", idThing);
             mJsonObject.put("pict", pict);
             mJsonObject.put("desc", desc);
