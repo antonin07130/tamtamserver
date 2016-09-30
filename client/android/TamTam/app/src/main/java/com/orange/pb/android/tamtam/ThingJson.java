@@ -15,7 +15,7 @@ public class ThingJson {
     /**
      *
      */
-    public ThingJson(String idThing, String pict, String desc, int currency, float price,
+    public ThingJson(String thingId, String pict, String desc, int currency, float price,
                      double lon, double lat, String locationType, boolean stuck) {
 
         mJsonObject = new JSONObject();
@@ -30,7 +30,7 @@ public class ThingJson {
             locationJson.put("lon", lon);
             locationJson.put("lat", lat);
             //locationJson.put("locType", locationType);
-            mJsonObject.put("idThing", idThing);
+            mJsonObject.put("thingId", thingId);
             mJsonObject.put("pict", pict);
             mJsonObject.put("desc", desc);
             mJsonObject.put("price", priceJson);
