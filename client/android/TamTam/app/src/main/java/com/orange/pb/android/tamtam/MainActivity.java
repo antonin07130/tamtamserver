@@ -59,7 +59,9 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 
     // Server URL.
     public final static String SERVER_URL = "http://systev.com:5003";
-    public final static String THINGS_URL = "/things/";
+    // We are user idUser0.
+    // Must end with a "/".
+    public final static String THINGS_URL = "/users/idUser0/sellingThings/";
 
     // TODO - to be replaced by a real unique id.
     public final static String UNIQUE_ID = "TelephonePascal";
