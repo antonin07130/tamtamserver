@@ -170,7 +170,7 @@ public class SellingActivity extends AppCompatActivity implements
                 Response.Listener<JSONObject> responseListener = new Response.Listener<JSONObject>() {
                     @Override
                     public void onResponse(JSONObject response) {
-                        AppLog.d(LOG_TAG, "Received response: " + response.toString());
+                        AppLog.d(LOG_TAG, "Successful response");
                     }
                 };
                 Response.ErrorListener errorListener = new Response.ErrorListener() {

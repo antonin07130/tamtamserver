@@ -38,6 +38,7 @@
         </provider>
 
         <activity android:name="com.orange.pb.android.tamtam.SellingActivity"></activity>
+        <activity android:name="com.orange.pb.android.tamtam.SettingsActivity"></activity>
     </application>
 
 </manifest>

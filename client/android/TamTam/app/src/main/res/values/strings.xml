@@ -18,4 +18,6 @@
     <string name="selling_rotate">Tourner</string>
     <string name="selling_cancel">Annuler</string>
     <string name="selling_validate">Valider</string>
+    <string name="pref_port">Port</string>
+    <string name="pref_port_summ">Port serveur</string>
 </resources>

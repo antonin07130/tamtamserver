@@ -32,9 +32,9 @@ public class ThingJson {
             //locationJson.put("locType", locationType);
             mJsonObject.put("thingId", thingId);
             mJsonObject.put("pict", pict);
-            mJsonObject.put("desc", desc);
+            mJsonObject.put("description", desc);
             mJsonObject.put("price", priceJson);
-            mJsonObject.put("location", locationJson);
+            mJsonObject.put("position", locationJson);
             mJsonObject.put("stuck", stuck);
         } catch (JSONException e) {
             AppLog.d(LOG_TAG, e.getMessage());

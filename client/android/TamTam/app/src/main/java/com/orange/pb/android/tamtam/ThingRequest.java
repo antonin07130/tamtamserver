@@ -11,7 +11,7 @@ import org.json.JSONObject;
  */
 public class ThingRequest {
 
-    private JsonObjectRequest mJsonRequest;
+    private JsonRequestImp mJsonRequest;
 
     /**
      *
@@ -21,7 +21,7 @@ public class ThingRequest {
     public ThingRequest(String url, JSONObject jsonObject, Response.Listener<JSONObject> listener,
                         Response.ErrorListener errorListener) {
 
-       mJsonRequest = new JsonObjectRequest(Request.Method.PUT, url, jsonObject, listener,
+       mJsonRequest = new JsonRequestImp(Request.Method.PUT, url, jsonObject, listener,
                errorListener);
 
     }
@@ -29,7 +29,7 @@ public class ThingRequest {
     /**
      *
      */
-    public JsonObjectRequest getRequest() {
+    public JsonRequestImp getRequest() {
 
         return mJsonRequest;
 

@@ -58,7 +58,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     public final static String LOC_NOT_KNOWN  = "notKnown";
 
     // Server URL.
-    public final static String SERVER_URL = "http://systev.com:5003";
+    public final static String SERVER_URL = "http://systev.com:5001";
     // We are user idUser0.
     // Must end with a "/".
     public final static String THINGS_URL = "/users/idUser0/sellingThings/";
@@ -119,7 +119,7 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
             }
         }
 
-        // Adding toolbar to the activity
+        // Add toolbar to the activity.
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
@@ -401,6 +401,8 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_settings:
+                Intent intent = new Intent(this, SettingsActivity.class);
+                startActivity(intent);
                 return true;
 
             case R.id.action_add:
