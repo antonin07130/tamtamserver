@@ -83,6 +83,9 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     private static final int IMAGE_MAX_WIDTH = 200;
     private static final int IMAGE_MAX_HEIGHT = 200;
 
+    // authorization request references for case matching
+    private final static int MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
+
     /**
      * For tab handling.
      */
@@ -351,10 +354,16 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 //        // TODO:
 //        // Permission checking below should not be required, as it is already performed
 //        // at location settings time, above. Check how to remove it.
-//        if (ActivityCompat.checkSelfPermission(this,
-//                android.Manifest.permission.ACCESS_FINE_LOCATION) !=
-//                PackageManager.PERMISSION_GRANTED) {
-//            AppLog.d(LOG_TAG, "Location permissions not granted");
+        if (ActivityCompat.checkSelfPermission(this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED) {
+            AppLog.d(LOG_TAG, "Location permissions not granted");
+            // Todo : implement explanation message on location permission denied
+            //if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+            //        Manifest.permission.ACCESS_FINE_LOCATION))
+            ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                    MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
 //            // TODO: Consider calling
 //            //    ActivityCompat#requestPermissions
 //            // here to request the missing permissions, and then overriding
@@ -365,6 +374,9 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
 //            return;
 //        }
 //
+
+        }
+
         try {
             LocationServices.FusedLocationApi.requestLocationUpdates(
                     mGoogleApiClient, mLocationRequest, this);
@@ -373,6 +385,32 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
         }
 
     }
+
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    AppLog.d(LOG_TAG, "onRequestPermissionsResult() - User explicitely granted location permissions");
+                    // permission granted
+                    // we can go back to starting location update again :
+                    startLocationUpdates();
+                } else {
+                    AppLog.d(LOG_TAG, "onRequestPermissionsResult() - User explicitely denied location permissions");
+                    //todo Disable the localization service or exit app
+                }
+                return;
+            }
+            // other 'case' lines to check for other
+            // permissions tamtam might request
+        }
+    }
+
 
     /**
      *
