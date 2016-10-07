@@ -57,6 +57,9 @@ public class MainActivity extends AppCompatActivity implements TabLayout.OnTabSe
     public final static String LOC_LAST_KNOWN = "lastKnown";
     public final static String LOC_NOT_KNOWN  = "notKnown";
 
+    // Default settings values.
+    public final static String DEF_PORT = "5002";
+
     // Server URL.
     public final static String SERVER_URL = "http://systev.com:5001";
     // We are user idUser0.
