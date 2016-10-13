@@ -19,6 +19,10 @@ import reactivemongo.play.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+
+
+
+
 /**
   * This controller creates an `Action` to handle HTTP requests to the
   * application's home page.
@@ -33,6 +37,8 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
   // connect to mongoDb collection of users
   val userRepo = new UserRepo(reactiveMongoApi)
+
+
 
 
   // todo : put this code in a function taking a list of anything having an id and returning json or notfound

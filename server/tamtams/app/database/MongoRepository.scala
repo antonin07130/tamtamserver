@@ -2,6 +2,7 @@ package database
 
 import com.typesafe.config.ConfigFactory
 import models.{Thing, User}
+import org.h2.command.ddl.CreateTableData
 import play.api.libs.json._
 import play.modules.reactivemongo.ReactiveMongoApi
 import reactivemongo.api.commands.{UpdateWriteResult, WriteResult}
@@ -10,6 +11,14 @@ import reactivemongo.api.indexes.IndexType._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+
+
+
+sealed trait ReqResult
+final case class Found(n: Int) extends ReqResult
+final case class Removed(n: Int) extends ReqResult
+final case class Updated(n: Int) extends ReqResult
+final case class NotFound(n: Int) extends ReqResult
 
 
 /**
@@ -28,18 +37,17 @@ abstract trait MongoRepository {
 
    def upsert(selector : JsObject, obj: JsObject)(implicit ec: ExecutionContext): Future[UpdateWriteResult] =
     collection.flatMap(jscol => jscol.update(selector, obj, upsert = true).
-      andThen{case wr => {logger.debug(wr.get.toString)}})
+      andThen{case wr => {logger.debug("mongo upsert command result :" + wr.get.toString)}})
 
    def remove(selector: JsObject)(implicit ec: ExecutionContext) : Future[WriteResult] =
     collection.flatMap(jscol => jscol.remove(selector).
-      andThen{case wr => {logger.debug(wr.get.toString)}})
+      andThen{case wr => {logger.debug("mongo remove command result :" + wr.get.toString)}})
 
    def find(selector: JsObject)(implicit ec: ExecutionContext): Future[Seq[JsObject]] =
     collection.flatMap(jscol => jscol.find(selector).cursor[JsObject]().collect[List]())
 
    def find()(implicit ec: ExecutionContext): Future[Seq[JsObject]] =
     collection.flatMap(col => col.find(JsObject(Seq(("", JsNull)))).cursor[JsObject]().collect[List]())
-
 }
 
 
@@ -98,7 +106,12 @@ trait ObjectRepository[T] extends MongoRepository {
     */
   def removeObjects(idList: Seq[String])(implicit ec: ExecutionContext) : Future[WriteResult] = {
     val selector = Json.obj(idFieldName -> Json.obj("$in" -> (idList)))
-    remove(selector)
+    remove(selector).map{
+      wr1 => new Removed(n)
+      wr2 => 
+      wr3 => ERROR
+    }}
+
   }
 
   /**

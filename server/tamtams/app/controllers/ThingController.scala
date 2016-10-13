@@ -34,6 +34,19 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   val userRepo = new UserRepo(reactiveMongoApi)
 
 
+  // helper partial function to deal with database based requests
+  def DbExceptionResults: PartialFunction[Throwable, Result] = {
+    case PrimaryUnavailableException => {
+      logger.error(s"tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
+      InternalServerError
+    }
+    case err: CommandError => {
+      logger.error(s"tamtams : MongoDb command error ${err.getMessage()}")
+      InternalServerError
+    }
+  }
+
+
   /**
     * Create an async Action to return a json object response
     * containing the [[Thing]] selected byuserId.
@@ -65,11 +78,7 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           InternalServerError
         }
       } recover {
-        // deal with exceptions related to database connection
-        case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
-        }
+        DbExceptionResults
       }
     }
   }
@@ -197,16 +206,8 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
         // stick callbacks to write results to send an appropriate answer
         futureInsertQueriesResults.map { okResult =>
           verifyInsertsQueriesResults(okResult)
-        } recover {
-          // deal with exceptions related to database connection
-          case err: CommandError => {
-            logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
-            InternalServerError
-          }
-          case PrimaryUnavailableException => {
-            logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-            InternalServerError
-          }
+        } recover { // deal with exceptions related to database connection
+          DbExceptionResults
         }
       }
     }
@@ -274,16 +275,8 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
       futureQueriesResults.map {
         // results free of exceptions but still need to check databases operations results
         okResult => verifyRemoveQueriesResults(okResult)
-      } recover {
-        // deal with exceptions related to database connection
-        case err: CommandError => {
-          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
-          InternalServerError
-        }
-        case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
-        }
+      } recover { // deal with exceptions related to database connection
+        DbExceptionResults
       }
     }
   }
@@ -317,20 +310,13 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           logger.error(s"tamtams : collection structure unknown ($thingRepo.thingsJSONCollection should be a collection of Things) ")
           InternalServerError
         }
-      } recover {
-        case e: NoSuchElementException => {
-          // if we were not able to build the request
-          logger.debug(s"tamtams : could not build list of Thing Ids for user ${userId}")
-          NotFound
-        }
-        // deal with exceptions related to database connection
-        case err: CommandError => {
-          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
-          InternalServerError
-        }
-        case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
+      } recover { // deal with exceptions related to database connection
+        DbExceptionResults andThen { // and then other exceptions
+          case e: NoSuchElementException => {
+            // if we were not able to build the request
+            logger.debug(s"tamtams : could not build list of Thing Ids for user ${userId}")
+            NotFound
+          }
         }
       }
     }
@@ -383,20 +369,13 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           InternalServerError
         }
       } recover {
-        case err: NoSuchElementException => {
-          logger.error(s"tamtams Things Collection not found : ${err.getMessage()}")
-          InternalServerError
-        }
-        case err: CommandError => {
-          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
-          InternalServerError
-        }
-        case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
+        DbExceptionResults andThen {
+          case err: NoSuchElementException => {
+            logger.error(s"tamtams Things Collection not found : ${err.getMessage()}")
+            InternalServerError
+          }
         }
       }
-
     }
   }
 
@@ -423,16 +402,8 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           logger.error(s"tamtams : collection structure unknown (${thingRepo.collection} should be a collection of Things) ")
           InternalServerError
         }
-      } recover {
-        // deal with exceptions related to database connection
-        case err: CommandError => {
-          logger.error(s" tamtams : MongoDb command error ${err.getMessage()}")
-          InternalServerError
-        }
-        case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
-        }
+      } recover { // deal with exceptions related to database connection
+        DbExceptionResults
       }
     }
   }
