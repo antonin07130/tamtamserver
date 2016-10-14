@@ -5,20 +5,13 @@ import models.{Thing, User}
 import org.h2.command.ddl.CreateTableData
 import play.api.libs.json._
 import play.modules.reactivemongo.ReactiveMongoApi
-import reactivemongo.api.commands.{UpdateWriteResult, WriteResult}
+import reactivemongo.api.commands.{DefaultWriteResult, UpdateWriteResult, WriteResult}
 import reactivemongo.play.json.collection.JSONCollection
 import reactivemongo.api.indexes.IndexType._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-
-
-sealed trait ReqResult
-final case class Found(n: Int) extends ReqResult
-final case class Removed(n: Int) extends ReqResult
-final case class Updated(n: Int) extends ReqResult
-final case class NotFound(n: Int) extends ReqResult
 
 
 /**
@@ -54,6 +47,7 @@ abstract trait MongoRepository {
 /**
   * This Trait implements most usefull functions to deal
   * with MongoDb collections of objects.
+  * It also simplifies return values.
   * @tparam T Type of objects stored by this repository
   */
 trait ObjectRepository[T] extends MongoRepository {
@@ -102,27 +96,26 @@ trait ObjectRepository[T] extends MongoRepository {
     * This function removes objects with ids in idList
     * @param idList list of object ids
     * @param ec
-    * @return
+    * @return number of removed objects
     */
-  def removeObjects(idList: Seq[String])(implicit ec: ExecutionContext) : Future[WriteResult] = {
+  def removeObjects(idList: Seq[String])(implicit ec: ExecutionContext) : Future[Int] = {
     val selector = Json.obj(idFieldName -> Json.obj("$in" -> (idList)))
     remove(selector).map{
-      wr1 => new Removed(n)
-      wr2 => 
-      wr3 => ERROR
-    }}
-
+      case DefaultWriteResult(true,n,List(),None,None,None) => n
+    }
   }
 
   /**
     * This function inserts the object in the collection or updates it (upsert semantics)
     * @param obj object to insert or update
     * @param ec
-    * @return
+    * @return [(Int, Int)] representing the number of (modified, inserted) objects
     */
-  def upsertObject(obj: T, id : String)(implicit ec: ExecutionContext): Future[WriteResult] = {
+  def upsertObject(obj: T, id : String)(implicit ec: ExecutionContext): Future[(Int, Int)] = {
   def selector = Json.obj(idFieldName -> id)
-  upsert(selector,objToRepo(obj))
+  upsert(selector,objToRepo(obj)).map{
+    case UpdateWriteResult(true,nFound,nModified,_,List(),None,None,None) => (nModified, nFound-nModified)
+    }
   }
 }
 

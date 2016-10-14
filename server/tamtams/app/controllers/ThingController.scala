@@ -34,15 +34,17 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   val userRepo = new UserRepo(reactiveMongoApi)
 
 
-  // helper partial function to deal with database based requests
+  // helper partial function to deal with database based requests errors
   def DbExceptionResults: PartialFunction[Throwable, Result] = {
     case PrimaryUnavailableException => {
-      logger.error(s"tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-      InternalServerError
+      val er = s"tamtams : MongoDb connection error ${PrimaryUnavailableException.message}"
+      logger.error(er)
+      InternalServerError(Json.toJson(er))
     }
     case err: CommandError => {
-      logger.error(s"tamtams : MongoDb command error ${err.getMessage()}")
-      InternalServerError
+      val er = s"tamtams : MongoDb command error ${err.getMessage()}"
+      logger.error(er)
+      InternalServerError(Json.toJson(er))
     }
   }
 
@@ -109,20 +111,13 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult}")
           Created.withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
         } recover {
-          // deal with exceptions related to database connection
-          case err: CommandError if err.code.contains(11000) => {
-            logger.error(s" tamtams : MongoDb connection error ${err.getMessage()}")
-            InternalServerError
-          }
-          case PrimaryUnavailableException => {
-            logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-            InternalServerError
-          }
+          DbExceptionResults
         }
       }
       else {
-        logger.debug(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}")
-        Future.successful(BadRequest)
+        val msg = s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}"
+        logger.debug(msg)
+        Future.successful(BadRequest(Json.toJson(msg)))
       }
     }
   }
@@ -184,16 +179,19 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
               Ok
             }
             case (UpdateWriteResult(true, 1, 1, _, _, _, _, _), UpdateWriteResult(false, _, _, _, _, _, _, _)) => {
-              logger.error(s"tamtams : insertion of thing $thingId in user $userId collection ok, in thing collection KO") //todo : correct state
-              InternalServerError
+              val er = s"tamtams : insertion of thing $thingId in user $userId collection ok, in thing collection KO"
+              logger.error(er) //todo : correct state
+              InternalServerError(Json.toJson(er))
             }
             case (UpdateWriteResult(_, 0, 0, _, _, _, _, _), UpdateWriteResult(true, 1, _, _, _, _, _, _)) => {
-              logger.error(s"tamtams : user $userId not found, but insertion of thing $thingId in thing collection happened anyways") // todo : correct inconsistent state
-              InternalServerError
+              val er = s"tamtams : user $userId not found, but insertion of thing $thingId in thing collection happened anyways"
+              logger.error(er) // todo : correct inconsistent state
+              InternalServerError(Json.toJson(er))
             }
             case (UpdateWriteResult(_, 0, _, _, _, _, _, _), UpdateWriteResult(_, 0, _, _, _, _, _, _)) => {
-              logger.debug("tamtams : not found : did not update user nor thing collection")
-              NotFound
+              val msg = "tamtams : not found : did not update user nor thing collection"
+              logger.debug(msg)
+              NotFound(Json.toJson(msg))
             }
             case (_, _) => {
               logger.error("tamtams : unspecified state")

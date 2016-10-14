@@ -10,6 +10,8 @@ import play.api.mvc.Results._
 import play.api.routing.Router
 import scala.concurrent._
 
+import play.api.libs.json._
+
 @Singleton
 class ErrorHandler @Inject() (
                                env: Environment,
@@ -20,13 +22,13 @@ class ErrorHandler @Inject() (
 
   override def onProdServerError(request: RequestHeader, exception: UsefulException) = {
     Future.successful(
-      InternalServerError("A server error occurred: " + exception.getMessage)
+      InternalServerError(Json.toJson("A server error occurred: " + exception.getMessage))
     )
   }
 
   override def onForbidden(request: RequestHeader, message: String) = {
     Future.successful(
-      Forbidden("You're not allowed to access this resource.")
+      Forbidden(Json.toJson("You're not allowed to access this resource."))
     )
   }
 }
