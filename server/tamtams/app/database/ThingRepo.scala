@@ -7,7 +7,8 @@ import play.modules.reactivemongo.ReactiveMongoApi
 /**
   * Class to manage Things MongoDb Collection
   */
-class ThingRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[Thing] {
+class ThingRepo(reactiveMongoApi: ReactiveMongoApi,
+                collectionName: String = "thingsCollection") extends ObjectRepository[Thing] {
   import utils.ThingJsonConversion._
   import reactivemongo.play.json._
   import reactivemongo.api.indexes.IndexType.Geo2DSpherical
@@ -16,16 +17,14 @@ class ThingRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[Thi
   import reactivemongo.play.json.collection.JSONCollection
   import scala.concurrent.{ExecutionContext, Future}
 
-
-  val thingsCollectionName = ConfigFactory.load().getString("mongodb.thingsCollection")
-  logger.debug(s"tamtams : thingRepo collection read configuration : $thingsCollectionName")
+  logger.debug("thingRepo collection read configuration" + collectionName)
 
   // define indexing on this collection
   val thingIdIndex: reactivemongo.api.indexes.Index = reactivemongo.api.indexes.Index(Seq(("position", Geo2DSpherical)))
   //todo check if def is ok or val better
   override def collection(implicit ec: ExecutionContext) = {
     reactiveMongoApi.database.map {
-      connectedDb => connectedDb.collection[JSONCollection](thingsCollectionName)
+      connectedDb => connectedDb.collection[JSONCollection](collectionName)
     }.map {
       (col: JSONCollection) => {
         col.indexesManager.ensure(thingIdIndex)
@@ -72,7 +71,7 @@ class ThingRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[Thi
 
     val commandDoc =
       Json.obj(
-        "geoNear" -> thingsCollectionName,
+        "geoNear" -> collectionName,
         "near" -> geoJsonPoint,
         "spherical" -> true,
         "minDistance" -> 0,

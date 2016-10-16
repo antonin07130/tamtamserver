@@ -105,29 +105,32 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
       if (userId == request.body.userId) {
         logger.debug(s" tamtams : requesting insertion of User : ${request.body}")
 
+        // (modified, upserted)
         userRepo.upsertObject(request.body).map {
-          case UpdateWriteResult(true, 1, 0, _, _, _, _, _) => {
+          case (0, 1) => {
             logger.debug(s" tamtams : new user $userId created")
             Created.withHeaders((LOCATION, request.host + request.uri))
           }
-          case UpdateWriteResult(true, 1, 1, List(), List(), None, None, None) => {
+          case (1, 0) => {
             logger.debug(s" tamtams : user updated")
             Ok.withHeaders((LOCATION, request.host + request.uri))
           }
           case _ =>{
-            logger.error(s"tamtams : illegal state trying to addUser ")
-            throw new IllegalStateException
-            InternalServerError("tamtams : illegal state trying to putUser (unknown returned result)")
+            val msg = "putUser() illegal state trying to addUser :" + userId
+            logger.error(msg)
+            throw new IllegalStateException(msg)
           }
         } recover {
           // deal with exceptions related to database connection
           case err: CommandError if err.code.contains(11000) => {
-            logger.error(s" tamtams : MongoDb connection error ${err.getMessage()}")
-            InternalServerError
+            val msg = s" tamtams : MongoDb connection error ${err.getMessage()}"
+            logger.error(msg)
+            InternalServerError(Json.toJson(msg))
           }
           case PrimaryUnavailableException => {
-            logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-            InternalServerError
+            val msg = s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}"
+            logger.error(msg)
+            InternalServerError(Json.toJson(msg))
           }
         }
       } else {
@@ -152,24 +155,25 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   def deleteUser(userId: String) = Action.async {
     request => {
       userRepo.removeObjects(List(userId)).map {
-        case DefaultWriteResult(true,1,_,_,_,_) => {// check option contents
+        case 1 => {// check option contents
           logger.debug(s"tamtams : removed object from mongo ${userId}")
           Ok
         }
-        case DefaultWriteResult(true,0,_,_,_,_) => {
+        case 0 => {
           logger.debug(s"tamtams : user ${userId} Not found ")
           NotFound
         }
         case _ =>{
-          logger.error(s"tamtams : illegal state trying to deleteUser ")
-          throw new IllegalStateException
-          InternalServerError("tamtams : illegal state trying to deleteUser (unknown returned object)")
+          val msg = "tamtams : illegal state trying to deleteUser "
+          logger.error(msg)
+          throw new IllegalStateException(msg)
         }
       } recover {//future failed
         // deal with exceptions related to database connection
         case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
+          val msg = s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}"
+          logger.error(msg)
+          InternalServerError(msg)
         }
       }
     }

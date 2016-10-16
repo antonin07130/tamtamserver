@@ -30,29 +30,37 @@ abstract trait MongoRepository {
 
    def upsert(selector : JsObject, obj: JsObject)(implicit ec: ExecutionContext): Future[UpdateWriteResult] =
     collection.flatMap(jscol => jscol.update(selector, obj, upsert = true).
-      andThen{case wr => {logger.debug("mongo upsert command result :" + wr.get.toString)}})
+      andThen{case wr => {logger.debug("mongo upsert command: " + selector + " " + obj + " .Result: " + wr.get.toString)}})
 
    def remove(selector: JsObject)(implicit ec: ExecutionContext) : Future[WriteResult] =
     collection.flatMap(jscol => jscol.remove(selector).
-      andThen{case wr => {logger.debug("mongo remove command result :" + wr.get.toString)}})
+      andThen{case wr => {logger.debug("mongo remove command: " + selector + " .Result: " + wr.get.toString)}})
 
    def find(selector: JsObject)(implicit ec: ExecutionContext): Future[Seq[JsObject]] =
-    collection.flatMap(jscol => jscol.find(selector).cursor[JsObject]().collect[List]())
+    collection.flatMap(jscol => jscol.find(selector).cursor[JsObject]().collect[List]()).
+      andThen{case _ => {logger.debug("mongo find command: " + selector)}}
 
    def find()(implicit ec: ExecutionContext): Future[Seq[JsObject]] =
-    collection.flatMap(col => col.find(JsObject(Seq(("", JsNull)))).cursor[JsObject]().collect[List]())
+    collection.flatMap(col => col.find(JsObject(Seq(("", JsNull)))).cursor[JsObject]().collect[List]()).
+      andThen{case _ => {logger.debug("mongo find command: " + JsObject(Seq(("", JsNull))))}}
 }
 
 
+
+
+
+
 /**
-  * This Trait implements most usefull functions to deal
+  * This Trait implements most useful functions to deal
   * with MongoDb collections of objects.
   * It also simplifies return values.
   * @tparam T Type of objects stored by this repository
   */
-trait ObjectRepository[T] extends MongoRepository {
+abstract trait ObjectRepository[T] extends MongoRepository {
 
-  // name of the field containing Ids in MongoDb
+  /**
+    * Name of the field containing Ids in MongoDb
+    */
   def idFieldName : String
 
   /**
@@ -74,49 +82,52 @@ trait ObjectRepository[T] extends MongoRepository {
 
   /**
     * This function returns all objects of the collection
-    * @param ec
+    * @param ec [[ExecutionContext]] in which this function is executed.
     * @return a [[scala.concurrent.Future]] of [[scala.Seq]] of [[T]] objects
     */
   def findObjects()(implicit ec: ExecutionContext) : Future[Seq[T]] =
-    find().map(_.map(repoToObj(_)))
+    find().map(seq => seq.map(repoToObj))
 
   /**
     * This function searches for objects with ids in idList
     * and returns them
     * @param idList list of object ids
-    * @param ec
+    * @param ec [[ExecutionContext]] in which this function is executed.
     * @return a [[scala.concurrent.Future]] of [[scala.Seq]] of [[T]] objects
     */
   def findObjects(idList: Seq[String])(implicit ec: ExecutionContext): Future[Seq[T]] = {
     val query =  Json.obj(idFieldName -> Json.obj("$in" -> (idList)))
-    find(query).map(_.map(repoObj => repoToObj(repoObj)))
+    find(query).map(seq => seq.map(repoToObj))
   }
 
   /**
     * This function removes objects with ids in idList
     * @param idList list of object ids
-    * @param ec
+    * @param ec [[ExecutionContext]] in which this function is executed.
     * @return number of removed objects
     */
   def removeObjects(idList: Seq[String])(implicit ec: ExecutionContext) : Future[Int] = {
     val selector = Json.obj(idFieldName -> Json.obj("$in" -> (idList)))
     remove(selector).map{
-      case DefaultWriteResult(true,n,List(),None,None,None) => n
+      case DefaultWriteResult(true,n,_,None,None,None) => n
+      case _ => throw new IllegalStateException("removeObjects()")
     }
   }
 
   /**
     * This function inserts the object in the collection or updates it (upsert semantics)
     * @param obj object to insert or update
-    * @param ec
-    * @return [(Int, Int)] representing the number of (modified, inserted) objects
+    * @param ec [[ExecutionContext]] in which this function is executed.
+    * @return [[(Int, Int)]] representing the number of (modified, upserted) objects
     */
   def upsertObject(obj: T, id : String)(implicit ec: ExecutionContext): Future[(Int, Int)] = {
-  def selector = Json.obj(idFieldName -> id)
-  upsert(selector,objToRepo(obj)).map{
-    case UpdateWriteResult(true,nFound,nModified,_,List(),None,None,None) => (nModified, nFound-nModified)
+    def selector = Json.obj(idFieldName -> id)
+    upsert(selector,objToRepo(obj)).map{
+      case UpdateWriteResult(true,nFound,nModified,_,List(),None,None,None) => (nModified, nFound-nModified)
+      case _ => throw new IllegalStateException("upsertObject()")
     }
   }
+
 }
 
 

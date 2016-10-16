@@ -2,12 +2,14 @@ package database
 
 import models.User
 import play.modules.reactivemongo.ReactiveMongoApi
+import reactivemongo.api.commands.UpdateWriteResult
 
 
 /**
   * Created by antoninpa on 23/09/16.
   */
-class UserRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[User] {
+class UserRepo(reactiveMongoApi: ReactiveMongoApi,
+               collectionName: String = "usersCollection") extends ObjectRepository[User] {
   import utils.UserJsonConversion
   import reactivemongo.play.json._
   import play.api.libs.json.{JsObject, JsValue, Json}
@@ -16,8 +18,7 @@ class UserRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[User
   import scala.concurrent.{ExecutionContext, Future}
   import com.typesafe.config.ConfigFactory
 
-  val usersCollectionName = ConfigFactory.load().getString("mongodb.usersCollection")
-  logger.debug(s"tamtams : userRepo collection read configuration : $usersCollectionName")
+  logger.debug(s"tamtams : userRepo collection read configuration : $collectionName")
 
   /**
     * Connects to local database using [[database]] and
@@ -26,7 +27,7 @@ class UserRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[User
     */
   //todo check if def is ok or val better
   override def collection(implicit ec: ExecutionContext) =   reactiveMongoApi.database.map(// once future database is completed :
-    connectedDb => connectedDb.collection[JSONCollection](usersCollectionName)
+    connectedDb => connectedDb.collection[JSONCollection](collectionName)
   )
 
 
@@ -48,14 +49,16 @@ class UserRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[User
     * @return [[Future]] of the [[WriteResult]] of this operation
     */
   def addValueToUserArray(userId: String, userArrayName: String, newValue: String)(implicit ec: ExecutionContext)
-  : Future[WriteResult] = {
+  : Future[Int] = {
     def selector = Json.obj("userId" -> userId)
-
     def insertionRequest = Json.obj("$addToSet" -> Json.obj(userArrayName -> newValue))
 
-    //logger.debug(s"tamtams : update request to mongoDb : $selector $insertionRequest")
-
-    collection.flatMap(jscol => jscol.update(selector, insertionRequest, upsert = false))
+    logger.debug(s"mongo update command: $selector $insertionRequest")
+    collection.flatMap(jscol => jscol.update(selector, insertionRequest, upsert = false)).map{
+      case UpdateWriteResult(true,0,_,_,_,None,None,None) => 0
+      case UpdateWriteResult(true,1,nModified,_,_,None,None,None) => nModified
+      case _ => throw new IllegalStateException("addValueToUserArray()")
+    }
   }
 
   /**
@@ -65,10 +68,12 @@ class UserRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[User
     * @param userId        : id of the user whose array of things will be updated
     * @param userArrayName : name as [[String]] of the array to update
     * @param valueToRemove : value as [[String]] to remove from the array
-    * @return [[Future]] of the [[WriteResult]] of this operation
+    * @return [[Future]] of number of modified objects
     */
-  def removeValueFromUserArray(userId: String, userArrayName: String, valueToRemove: String)(implicit ec: ExecutionContext)
-  : Future[WriteResult] = {
+  def removeValueFromUserArray(userId: String,
+                               userArrayName: String,
+                               valueToRemove: String)
+                              (implicit ec: ExecutionContext):Future[Int] = {
     def selector = Json.obj("userId" -> userId)
     // define a mongoDb request to remove the value from the userArray
     def removalRequest = Json.obj("$pull" -> Json.obj(userArrayName -> valueToRemove))
@@ -77,7 +82,11 @@ class UserRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[User
     collection.flatMap(jscol => {
       //logger.debug(s"tamtams : executing query in mongoDb : update ${selector}, request: ${removalRequest}")
       jscol.update(selector, removalRequest)
-    })
+    }).map{
+      case UpdateWriteResult(true,0,_,_,_,None,None,None) => 0 // doc no found
+      case UpdateWriteResult(true,1,nModified,_,_,None,None,None) => nModified // doc found
+      case _ => throw new IllegalStateException("removeValueFromUserArray()")
+    }.andThen{case _ => logger.debug("mongo update command: " + selector + " " + removalRequest)}
   }
 
 
@@ -87,20 +96,22 @@ class UserRepo(reactiveMongoApi: ReactiveMongoApi) extends ObjectRepository[User
     val projectOnlyArray: JsObject = Json.obj(userArrayName -> 1, "_id" -> 0)
 
     // try to get a Js value containing an array named "userArrayName"
-    val futureSellingThingsJson: Future[Option[JsValue]] = {
+    val jsonAr: Future[Option[JsValue]] = {
       logger.debug(s"tamtams : executing query in mongoDb : find ${findUserQuery}, projection : ${projectOnlyArray}")
       collection.flatMap(jscol => jscol.find(findUserQuery, projectOnlyArray).one[JsValue])
     }
+
     // try to extract the array and store it as a Seq[String]
-    futureSellingThingsJson.flatMap {
+    jsonAr.flatMap {
       case Some(jsonVal) => {
         val ar = (jsonVal \ userArrayName).as[Seq[String]]
         logger.debug(s"tamtams : returning following array from MongoDb : ${ar}")
         Future.successful(Some(ar))
       }
       case None => {
-        logger.debug(s"tamtams : no array named ${userArrayName} found in mongoDb for ${userId}")
-        Future.failed(throw new NoSuchElementException(s"user ${userId} NotFound in mongoDb"))
+        val msg = s"tamtams : no array named ${userArrayName} found in mongoDb for ${userId}"
+        logger.debug(msg)
+        Future.failed(throw new NoSuchElementException(msg))
       }
     }
   }

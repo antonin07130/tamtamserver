@@ -8,6 +8,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import play.api.Logger
 import play.api.libs.json._
 import play.api.mvc._
+import play.api.Configuration
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
 import reactivemongo.api.commands._
 import reactivemongo.core.actors.Exceptions._
@@ -23,15 +24,16 @@ import utils.ThingJsonConversion._
   * using [[ReactiveMongoApi]].
   */
 @Singleton
-class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
+class ThingController @Inject()(configuration: play.api.Configuration)
+                               (val reactiveMongoApi: ReactiveMongoApi)
                                (implicit exec: ExecutionContext)
   extends Controller with MongoController with ReactiveMongoComponents {
 
   // defines a named logger for this class
   val logger: Logger = Logger("application." + this.getClass())
 
-  val thingRepo = new ThingRepo(reactiveMongoApi)
-  val userRepo = new UserRepo(reactiveMongoApi)
+  val thingRepo = new ThingRepo(reactiveMongoApi, configuration.underlying.getString("mongodb.thingsCollection"))
+  val userRepo = new UserRepo(reactiveMongoApi, configuration.underlying.getString("mongodb.usersCollection"))
 
 
   // helper partial function to deal with database based requests errors
@@ -76,8 +78,9 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           NotFound
         }
         case _ :: _ :: xs => {
-          logger.error(s"tamtams : found 2 or more elements matching this id")
-          InternalServerError
+          val msg = "tamtams : found 2 or more elements matching this id: " + thingId
+          logger.error(msg)
+          InternalServerError(Json.toJson(msg))
         }
       } recover {
         DbExceptionResults
@@ -146,64 +149,47 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
       }
       else {
         // ask to write our thingId to user collection in sellingThings array
-        val futureWriteThingIdResult: Future[WriteResult] =
-        userRepo.addValueToUserArray(userId, "sellingThings", request.body.thingId)
+        val wIds: Future[Int] = userRepo.addValueToUserArray(userId, "sellingThings", request.body.thingId)
 
-        // when user is updated, ask to update thing database (hope that execution order is conserved !)
-        val futureWriteThingResult: Future[WriteResult] = futureWriteThingIdResult.flatMap {
-          case UpdateWriteResult(_, 0, 0, _, _, _, _, _) => // user was not found : do nothing and send fake write result
-            Future.successful(UpdateWriteResult(true, 0, 0, Seq(), Seq(), None, None, None))
-          case UpdateWriteResult(true, 1, _, _, _, _, _, None) => // user found
-            thingRepo.upsertObject(request.body) //update Things collection
+        // when user is updated, ask to update thing database
+        val wThings: Future[(Int, Int)] = wIds.flatMap {
+          case 0 => Future.successful(0,0) // no update on user array send a "no update" result and do nothing
+          case 1 => thingRepo.upsertObject(request.body) //update Things collection
           case _ => Future.failed(throw new IllegalStateException) // should not happen
         }
 
+        // combine both futures to check for errors : (updated User, (modified Things, upserted Things))
+        val futureInsertQueriesResults: Future[(Int, (Int, Int))] =
+        wIds.zip(wThings)
 
-
-        // combine both futures to check for errors :
-        val futureInsertQueriesResults: Future[(WriteResult, WriteResult)] =
-        futureWriteThingIdResult.zip(futureWriteThingResult)
-
-        //noinspection RedundantBlock
-        // helper function to check that query results are as expected
-        // todo : correct writeresult checks in this function
-        def verifyInsertsQueriesResults(queryResults: (WriteResult, WriteResult)): Result = {
-          logger.debug(s"$queryResults")
-          queryResults match {
-            case (UpdateWriteResult(true,1,1,_,_,None,None,None),UpdateWriteResult(true,1,0,_,List(),None,None,None)) => {
-              logger.debug(s"tamtams - insertion in user collection ok,\n new thing $thingId in thing collection ok")
-              Created.withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
-            }
-            case (UpdateWriteResult(true,1,0,List(),List(),None,None,None),UpdateWriteResult(true,1,1,List(),List(),None,None,None)) => {
-              logger.debug(s"tamtams : $thingId already in user $userId collection, update in thing collection OK")
-              Ok
-            }
-            case (UpdateWriteResult(true, 1, 1, _, _, _, _, _), UpdateWriteResult(false, _, _, _, _, _, _, _)) => {
-              val er = s"tamtams : insertion of thing $thingId in user $userId collection ok, in thing collection KO"
-              logger.error(er) //todo : correct state
-              InternalServerError(Json.toJson(er))
-            }
-            case (UpdateWriteResult(_, 0, 0, _, _, _, _, _), UpdateWriteResult(true, 1, _, _, _, _, _, _)) => {
-              val er = s"tamtams : user $userId not found, but insertion of thing $thingId in thing collection happened anyways"
-              logger.error(er) // todo : correct inconsistent state
-              InternalServerError(Json.toJson(er))
-            }
-            case (UpdateWriteResult(_, 0, _, _, _, _, _, _), UpdateWriteResult(_, 0, _, _, _, _, _, _)) => {
-              val msg = "tamtams : not found : did not update user nor thing collection"
-              logger.debug(msg)
-              NotFound(Json.toJson(msg))
-            }
-            case (_, _) => {
-              logger.error("tamtams : unspecified state")
-              throw new IllegalStateException()
-            }
+        futureInsertQueriesResults.map {
+          case (1, (0, 1)) => {
+            logger.debug(s"tamtams - insertion in user collection ok,\n new thing $thingId in thing collection ok")
+            Created.withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
           }
-        }
-
-
-        // stick callbacks to write results to send an appropriate answer
-        futureInsertQueriesResults.map { okResult =>
-          verifyInsertsQueriesResults(okResult)
+          case (0, (1,0)) => {
+            logger.debug(s"tamtams : $thingId already in user $userId collection, update in thing collection OK")
+            Ok
+          }
+          case (1, (0, 0)) => {
+            val msg = s"tamtams : insertion of thing $thingId in user $userId collection ok, in thing collection KO"
+            logger.error(msg) //todo : correct state
+            InternalServerError(Json.toJson(msg))
+          }
+          case (0, (0, 1)) => {
+            val msg = s"tamtams : user $userId not found, but insertion of thing $thingId in thing collection happened anyways"
+            logger.error(msg) // todo : correct inconsistent state
+            InternalServerError(Json.toJson(msg))
+          }
+          case (0, (0, 0)) => {
+            val msg = "tamtams : not found : did not update user nor thing collection"
+            logger.debug(msg)
+            NotFound(Json.toJson(msg))
+          }
+          case _ => {
+            logger.error("tamtams : unspecified state")
+            throw new IllegalStateException("sellThing()")
+          }
         } recover { // deal with exceptions related to database connection
           DbExceptionResults
         }
@@ -228,51 +214,41 @@ class ThingController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
     request => {
       logger.debug(s" tamtams : requesting removal of Thing with Id: ${thingId} from user with Id: ${userId}")
 
-
-      // todo : maybe chain actions (to look for user first and then delete object ?)
+      // todo : maybe chain actions (to look for user first AND AFTER delete object ?)
       // ask to remove our Thing from things collection
-      val futureRemovedThing: Future[WriteResult] =
+      val remThings: Future[Int] =
       thingRepo.removeObjects(List(thingId))
       // ask to remove the thingId from SellingThings array in users collection
-      val futureRemoveThingIdResult: Future[WriteResult] =
+      val remIds: Future[Int] =
       userRepo.removeValueFromUserArray(userId, "sellingThings", thingId)
 
-      // combine both futures to check for errors :
-      val futureQueriesResults: Future[(WriteResult, WriteResult)] =
-      futureRemovedThing.zip(futureRemoveThingIdResult)
+      // combine both futures to check for errors (removedThing, removedThingId) :
+      val remThingsAndIds: Future[(Int, Int)] = remThings.zip(remIds)
 
-      // todo : correct writeresult checks in this function
-      // helper function to check that query results are as expected
-      def verifyRemoveQueriesResults(queryResults: (WriteResult, WriteResult)): Result = {
-        logger.debug(s"$queryResults")
-        queryResults match {
-          case (DefaultWriteResult(true,1,List(),None,None,None), UpdateWriteResult(true,1,1,List(),List(),None,None,None))  => {
-            logger.debug(s"tamtams - deletion of thing $thingId in user ${userId} and in thing db are sucessfull")
-            Ok
-          }
-          case (DefaultWriteResult(true,1,List(),None,None,None), UpdateWriteResult(true,1,0,List(),List(),None,None,None)) => {
-            logger.error(s"tamtams : thing $thingId deleted from thing collection but not found in user $userId")
-            InternalServerError
-          }
-          case (DefaultWriteResult(true,0,List(),None,None,None),UpdateWriteResult(true,1,1,List(),List(),None,None,None)) => {
-            logger.error(s"tamtams : thing $thingId deleted from user $userId collection but not found in thing collection")
-            InternalServerError
-          }
-          case (DefaultWriteResult(true,0,List(),None,None,None),UpdateWriteResult(true,1,0,List(),List(),None,None,None)) => {
-            logger.debug("tamtams : not found : did not update user nor thing collection")
-            NotFound
-          }
-          case (_, _) => {
-            logger.error("tamtams : unspecified state")
-            throw new IllegalStateException()
-          }
+      remThingsAndIds.map {
+        case (1, 1)  => {
+          logger.debug(s"tamtams - deletion of thing $thingId in user ${userId} and in thing db are sucessfull")
+          Ok
         }
-      }
-
-      // stick callbacks to write results to send an appropriate answer
-      futureQueriesResults.map {
-        // results free of exceptions but still need to check databases operations results
-        okResult => verifyRemoveQueriesResults(okResult)
+        case (1, 0) => {
+          val msg = s"tamtams : thing $thingId deleted from thing collection but not found in user $userId"
+          logger.error(msg)
+          InternalServerError(Json.toJson(msg))
+        }
+        case (0, 1) => {
+          val msg = s"tamtams : thing $thingId deleted from user $userId collection but not found in thing collection"
+          logger.error(msg)
+          InternalServerError(Json.toJson(msg))
+        }
+        case (0, 0) => {
+          val msg = "tamtams : not found : did not update user nor thing collection"
+          logger.debug(msg)
+          NotFound(msg)
+        }
+        case _ => {
+          logger.error("tamtams : unspecified state")
+          throw new IllegalStateException("removeThing()")
+        }
       } recover { // deal with exceptions related to database connection
         DbExceptionResults
       }
