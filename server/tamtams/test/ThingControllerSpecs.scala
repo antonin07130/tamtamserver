@@ -35,6 +35,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerTest with GivenWhenThe
   val testDb = "mongodb://localhost/tamtamTestDb"
   val testCollection = "tamtamTestThings"
 
+
   // Override newAppForTest to create a FakeApplication with other than non-default parameters.
   implicit override def newAppForTest(testData: TestData): Application =
   new GuiceApplicationBuilder()
@@ -56,7 +57,9 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerTest with GivenWhenThe
     }
   }
 
-  
+  val testThingId = "createTestId"
+  val testThing = Thing(testThingId, "PictureAsString", "createThing test object", Price(1, 1.1f), Position(40.0f, 40.0f), false)
+
   /*
   with BeforeAndAfter
 
@@ -81,37 +84,30 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerTest with GivenWhenThe
 
 
   "ThingController" when {
-    "Receiving a Creation request" should {
+    "Receiving a Creation request (PUT thing)" should {
       "Create a new Thing" in {
-        val testThingId = "createTestId"
-        val testThing = Thing(testThingId,"PictureAsString","createThing test object", Price(1, 1.1f), Position(40.0f, 40.0f),false)
-        val req = FakeRequest(PUT, "/things/"+ testThingId).withJsonBody(Json.toJson(testThing))
+        val req = FakeRequest(PUT, "/things/" + testThingId).withJsonBody(Json.toJson(testThing))
         val result = route(app, req).get
 
-        result.andThen{case e => print(e)}
+        result.andThen { case res => print(res) }
         status(result) mustBe CREATED
       }
 
       "Answer with a reachable URI in Location header" in {
-        Given ("a Thing object")
-        val testThingId = "createTestId"
-        val testThing = Thing(testThingId,"PictureAsString","createThing test object", Price(1, 1.1f), Position(40.0f, 40.0f),false)
-
-        When ("a PUT request is sent with this object is sent to application")
-        val req = FakeRequest(PUT, "/things/"+ testThingId).withJsonBody(Json.toJson(testThing))
+        Given("a Thing object")
+        When("a PUT request is sent with this object is sent to application")
+        val req = FakeRequest(PUT, "/things/" + testThingId).withJsonBody(Json.toJson(testThing))
         val result = route(app, req).get
 
-        Then ("a Location field in the response header must be sent back")
-        header("Location",result) must not be empty
+        Then("a Location field in the response header must be sent back")
+        header("Location", result) must not be empty
 
-        And ("Location field must contain an URI")
-        header("Location",result) mustEqual  Some(req.host + routes.ThingController.getThing(testThingId))
-
-
+        And("Location field must contain an URI")
+        header("Location", result) mustEqual Some(req.host + routes.ThingController.getThing(testThingId))
 
 
         When("using this URI")
-        val req2 = FakeRequest(GET, header("location",result).get)
+        val req2 = FakeRequest(GET, header("location", result).get)
         val result2 = route(app, req2).get
 
         Then("the application must send back the initial object")
@@ -120,20 +116,36 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerTest with GivenWhenThe
 
       "Answer with a json body containing a version of the header" in {
         Given("a Thing object")
-        val testThingId = "createTestId"
-        val testThing = Thing(testThingId, "PictureAsString", "createThing test object", Price(1, 1.1f), Position(40.0f, 40.0f), false)
-
-        When("a PUT request is sent with this object is sent to application")
+        When("a PUT request with this object is sent to application")
         val req = FakeRequest(PUT, "/things/" + testThingId).withJsonBody(Json.toJson(testThing))
         val result = route(app, req).get
 
-        Then ("response must contain a Json body")
+        Then("response must contain a Json body")
         assert(contentAsJson(result) != JsNull)
       }
 
     }
+
+
+
+    "Receiving a removal request " should {
+      "Remove an existing Thing" in {
+        val req = FakeRequest(DELETE, "/things/" + testThingId)
+        val result = route(app, req).get
+
+        result.andThen { case res => print(res) }
+        status(result) mustBe OK
+      }
+    }
+    "Receiving a sellingThing request" should {
+      "Create a new thing" in {
+      }
+      "Or update an existing thing" in {
+      }
+    }
   }
 
 }
+
 
 
