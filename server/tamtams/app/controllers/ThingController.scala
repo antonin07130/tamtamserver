@@ -4,19 +4,21 @@ import java.util.NoSuchElementException
 import javax.inject._
 
 import scala.concurrent.{ExecutionContext, Future}
-
 import play.api.Logger
 import play.api.libs.json._
 import play.api.mvc._
 import play.api.Configuration
 import play.modules.reactivemongo.{MongoController, ReactiveMongoApi, ReactiveMongoComponents}
 import reactivemongo.api.commands._
-import reactivemongo.core.actors.Exceptions._
+import reactivemongo.core.actors.Exceptions.{PrimaryUnavailableException, _}
 import reactivemongo.play.json._
-
 import database.{ThingRepo, UserRepo}
 import models.Thing
 import utils.ThingJsonConversion._
+import utils.ControllerHelpers._
+
+
+
 /**
   * This controller creates asynchronous Actions to handle HTTP requests
   * related to [[Thing]].
@@ -37,19 +39,22 @@ class ThingController @Inject()(configuration: play.api.Configuration)
 
 
   // helper partial function to deal with database based requests errors
+  // let ErrorHandler deal with those
+  /*
   def DbExceptionResults: PartialFunction[Throwable, Result] = {
     case PrimaryUnavailableException => {
-      val er = s"tamtams : MongoDb connection error ${PrimaryUnavailableException.message}"
-      logger.error(er)
-      InternalServerError(Json.toJson(er))
+      val msg = s"tamtams : MongoDb connection error ${PrimaryUnavailableException.message}"
+      logger.error(msg)
+      InternalServerError(msg)
+      throw PrimaryUnavailableException
     }
     case err: CommandError => {
-      val er = s"tamtams : MongoDb command error ${err.getMessage()}"
-      logger.error(er)
-      InternalServerError(Json.toJson(er))
+      val msg = s"tamtams : MongoDb command error ${err.getMessage()}"
+      logger.error(msg)
+      InternalServerError(msg)
     }
   }
-
+  */
 
   /**
     * Create an async Action to return a json object response
@@ -74,17 +79,18 @@ class ThingController @Inject()(configuration: play.api.Configuration)
           Ok(jsonThing)
         }
         case Nil => {
-          logger.debug(s"tamtams : thing ${thingId} Not found ")
-          NotFound
+          val msg = s"tamtams : thing ${thingId} Not found "
+          logger.debug(msg)
+          resultWithJsonBody(play.api.mvc.Results.NotFound, msg)
         }
         case _ :: _ :: xs => {
           val msg = "tamtams : found 2 or more elements matching this id: " + thingId
           logger.error(msg)
-          InternalServerError(Json.toJson(msg))
+          throw new IllegalStateException(msg)
         }
-      } recover {
+      } /*recover {
         DbExceptionResults
-      }
+      }*/
     }
   }
 
@@ -111,16 +117,18 @@ class ThingController @Inject()(configuration: play.api.Configuration)
 
         // stick callbacks to write results to send an appropriate answer
         futureWriteThingResult.map { okResult =>
-          logger.debug(s" tamtams : sucessfull insertion to MongoDb ${okResult}")
-          Created.withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
-        } recover {
+          val msg = s" tamtams : sucessfull insertion to MongoDb ${okResult}"
+          logger.debug(msg)
+          resultWithJsonBody(play.api.mvc.Results.Created,msg)
+            .withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
+        } /*recover {
           DbExceptionResults
-        }
+        }*/
       }
       else {
         val msg = s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}"
         logger.debug(msg)
-        Future.successful(BadRequest(Json.toJson(msg)))
+        Future.successful(resultWithJsonBody(play.api.mvc.Results.BadRequest, msg))
       }
     }
   }
@@ -141,11 +149,12 @@ class ThingController @Inject()(configuration: play.api.Configuration)
     *                with a BadRequest answer.
     * @return
     */
-  def sellThing(userId: String, thingId: String) = Action.async(parse.json[Thing]) {
+  def sellThing(userId: String, thingId: String): Action[Thing] = Action.async(parse.json[Thing]) {
     request => {
       if (thingId != request.body.thingId) {
-        logger.debug(s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}")
-        Future.successful(BadRequest)
+        val msg = s" tamtams : thingId in request is $thingId is different from thing.id in Json representation ${request.body.thingId}"
+        logger.debug(msg)
+        Future.successful(resultWithJsonBody(play.api.mvc.Results.BadRequest, msg))
       }
       else {
         // ask to write our thingId to user collection in sellingThings array
@@ -153,7 +162,7 @@ class ThingController @Inject()(configuration: play.api.Configuration)
 
         // when user is updated, ask to update thing database
         val wThings: Future[(Int, Int)] = wIds.flatMap {
-          case 0 => Future.successful(0,0) // no update on user array send a "no update" result and do nothing
+          case 0 => Future.successful((0,0)) // no update on user array send a "no update" result and do nothing
           case 1 => thingRepo.upsertObject(request.body) //update Things collection
           case _ => Future.failed(throw new IllegalStateException) // should not happen
         }
@@ -164,35 +173,38 @@ class ThingController @Inject()(configuration: play.api.Configuration)
 
         futureInsertQueriesResults.map {
           case (1, (0, 1)) => {
-            logger.debug(s"tamtams - insertion in user collection ok,\n new thing $thingId in thing collection ok")
-            Created.withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
+            val msg = s"tamtams - insertion in user collection ok,\n new thing $thingId in thing collection ok"
+            logger.debug(msg)
+            resultWithJsonBody(play.api.mvc.Results.Created, msg)
+              .withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
           }
           case (0, (1,0)) => {
-            logger.debug(s"tamtams : $thingId already in user $userId collection, update in thing collection OK")
-            Ok
+            val msg = s"tamtams : $thingId already in user $userId collection, update in thing collection OK"
+            logger.debug(msg)
+            resultWithJsonBody(play.api.mvc.Results.Ok, msg)
           }
           case (1, (0, 0)) => {
             val msg = s"tamtams : insertion of thing $thingId in user $userId collection ok, in thing collection KO"
             logger.error(msg) //todo : correct state
-            InternalServerError(Json.toJson(msg))
+            throw new IllegalStateException(msg)
           }
           case (0, (0, 1)) => {
             val msg = s"tamtams : user $userId not found, but insertion of thing $thingId in thing collection happened anyways"
             logger.error(msg) // todo : correct inconsistent state
-            InternalServerError(Json.toJson(msg))
+            throw new IllegalStateException(msg)
           }
           case (0, (0, 0)) => {
             val msg = "tamtams : not found : did not update user nor thing collection"
             logger.debug(msg)
-            NotFound(Json.toJson(msg))
+            resultWithJsonBody(play.api.mvc.Results.NotFound, msg)
           }
           case _ => {
             logger.error("tamtams : unspecified state")
-            throw new IllegalStateException("sellThing()")
+            throw new IllegalStateException("sellThing() unsecified state")
           }
-        } recover { // deal with exceptions related to database connection
+        } /*recover { // deal with exceptions related to database connection
           DbExceptionResults
-        }
+        }*/
       }
     }
   }
@@ -217,41 +229,42 @@ class ThingController @Inject()(configuration: play.api.Configuration)
       // todo : maybe chain actions (to look for user first AND AFTER delete object ?)
       // ask to remove our Thing from things collection
       val remThings: Future[Int] =
-      thingRepo.removeObjects(List(thingId))
+        thingRepo.removeObjects(List(thingId))
       // ask to remove the thingId from SellingThings array in users collection
       val remIds: Future[Int] =
-      userRepo.removeValueFromUserArray(userId, "sellingThings", thingId)
+        userRepo.removeValueFromUserArray(userId, "sellingThings", thingId)
 
       // combine both futures to check for errors (removedThing, removedThingId) :
       val remThingsAndIds: Future[(Int, Int)] = remThings.zip(remIds)
 
       remThingsAndIds.map {
         case (1, 1)  => {
-          logger.debug(s"tamtams - deletion of thing $thingId in user ${userId} and in thing db are sucessfull")
-          Ok
-        }
-        case (1, 0) => {
-          val msg = s"tamtams : thing $thingId deleted from thing collection but not found in user $userId"
-          logger.error(msg)
-          InternalServerError(Json.toJson(msg))
-        }
-        case (0, 1) => {
-          val msg = s"tamtams : thing $thingId deleted from user $userId collection but not found in thing collection"
-          logger.error(msg)
-          InternalServerError(Json.toJson(msg))
+          val msg = s"tamtams - deletion of thing $thingId in user ${userId} and in thing db are sucessfull"
+          logger.debug(msg)
+          resultWithJsonBody(play.api.mvc.Results.Ok, msg)
         }
         case (0, 0) => {
           val msg = "tamtams : not found : did not update user nor thing collection"
           logger.debug(msg)
-          NotFound(msg)
+          resultWithJsonBody(play.api.mvc.Results.NotFound, msg)
+        }
+        case (1, 0) => {
+          val msg = s"tamtams : thing $thingId deleted from thing collection but not found in user $userId"
+          logger.error(msg)
+          throw new IllegalStateException(msg)
+        }
+        case (0, 1) => {
+          val msg = s"tamtams : thing $thingId deleted from user $userId collection but not found in thing collection"
+          logger.error(msg)
+          throw new IllegalStateException(msg)
         }
         case _ => {
           logger.error("tamtams : unspecified state")
-          throw new IllegalStateException("removeThing()")
+          throw new IllegalStateException("removeThing() unspecified state")
         }
-      } recover { // deal with exceptions related to database connection
+      } /*recover { // deal with exceptions related to database connection
         DbExceptionResults
-      }
+      }*/
     }
   }
 
@@ -265,7 +278,6 @@ class ThingController @Inject()(configuration: play.api.Configuration)
     */
   def getSellingThings(userId: String) = Action.async {
     request => {
-
 
       // get the list of things (first get array of Ids, then request for ids in things collection)
       val listOfThings: Future[Seq[Thing]] = userRepo.getArrayFromUser(userId, "sellingThings").flatMap {
@@ -281,17 +293,19 @@ class ThingController @Inject()(configuration: play.api.Configuration)
           Ok(jsonThingsList)
         }
         case _ => {
-          logger.error(s"tamtams : collection structure unknown ($thingRepo.thingsJSONCollection should be a collection of Things) ")
-          InternalServerError
+          val msg = s"tamtams : collection structure unknown (${thingRepo}) should be a collection of Things) "
+          logger.error(msg)
+          throw new IllegalStateException(msg)
         }
       } recover { // deal with exceptions related to database connection
-        DbExceptionResults andThen { // and then other exceptions
-          case e: NoSuchElementException => {
+       /* DbExceptionResults orElse {*/ // and then other exceptions
+          case err: NoSuchElementException => {
             // if we were not able to build the request
-            logger.debug(s"tamtams : could not build list of Thing Ids for user ${userId}")
-            NotFound
+            val msg = s"tamtams : could not build list of Thing Ids for user ${userId}"
+            logger.debug(msg)
+            resultWithJsonBody(play.api.mvc.Results.NotFound ,msg)
           }
-        }
+       /* }*/
       }
     }
   }
@@ -339,17 +353,18 @@ class ThingController @Inject()(configuration: play.api.Configuration)
           Ok(jsre)
         }
         case _ => {
-          logger.error(s"tamtams : geoNear did not return expected array of dis and obj ")
-          InternalServerError
+          val msg = "tamtams : geoNear did not return expected array of dis and obj "
+          logger.error(msg)
+          throw new IllegalStateException(msg)
         }
-      } recover {
-        DbExceptionResults andThen {
+      } /*recover {
+        DbExceptionResults orElse {
           case err: NoSuchElementException => {
             logger.error(s"tamtams Things Collection not found : ${err.getMessage()}")
             InternalServerError
           }
         }
-      }
+      }*/
     }
   }
 
@@ -373,12 +388,13 @@ class ThingController @Inject()(configuration: play.api.Configuration)
           Ok(jsonThingsList)
         }
         case _ => {
-          logger.error(s"tamtams : collection structure unknown (${thingRepo.collection} should be a collection of Things) ")
-          InternalServerError
+          val msg = s"tamtams : collection structure unknown ${thingRepo.collection} should be a collection of Things)"
+          logger.error(msg)
+          throw new IllegalStateException(msg)
         }
-      } recover { // deal with exceptions related to database connection
+      } /*recover { // deal with exceptions related to database connection
         DbExceptionResults
-      }
+      }*/
     }
   }
 

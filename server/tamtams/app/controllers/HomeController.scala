@@ -30,5 +30,11 @@ class HomeController @Inject() extends Controller {
   // todo : get things near with database near functions
   def getThingsNear(lat: Double, lon: Double) = TODO
 
+  def throwExceptionAction() = Action{
+    if (true)
+      throw new IllegalStateException("NONONONO !!!!")
+    Ok("good")
+  }
+
 
 }
