@@ -46,8 +46,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
   }
 
 
-  def repoFixture = {
-    new {
+  class repoFixture {
       import scala.concurrent.Await
 
       val thingRepo = new ThingRepo(
@@ -87,7 +86,6 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
       def dropUserRepo(implicit timeout: Timeout) = {
         Await.result(userRepo.collection, timeout.duration).drop(failIfNotFound = false)
       }
-    }
   }
 
   // todo : store all request results in an array and verify as a final test that all results have a json body
@@ -102,7 +100,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
   "ThingController" when {
     "[DEPRECATED] Receiving a Thing creation request (PUT thing)" should {
       "Create a new Thing" in {
-        val f = repoFixture
+        val f = new repoFixture
         val req = FakeRequest(PUT, "/things/" + f.testThing1.thingId).withJsonBody(Json.toJson(f.testThing1))
         val result = route(app, req).get
 
@@ -113,7 +111,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
       }
 
       "Answer with a reachable URI in Location header" in {
-        val f = repoFixture
+        val f = new repoFixture
         Given("a Thing object")
         When("a PUT request is sent with this object is sent to application")
         val req = FakeRequest(PUT, "/things/" + f.testThing1.thingId).withJsonBody(Json.toJson(f.testThing1))
@@ -134,7 +132,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
       }
 
       "Answer with a json body containing a version of the header" in {
-        val f = repoFixture
+        val f = new repoFixture
         Given("a Thing object")
         When("a PUT request with this object is sent to application")
         val req = FakeRequest(PUT, "/things/" + f.testThing1.thingId).withJsonBody(Json.toJson(f.testThing1))
@@ -152,7 +150,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
       }
 
       "Answer with CREATED when creating a new Thing" in {
-        val f = repoFixture
+        val f = new repoFixture
         Given(s"a Thing collection with no ${f.testThing1.thingId} Thing in it")
         f.dropThingRepo
 
@@ -165,7 +163,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
       }
 
       "Answer with OK when updating an existing Thing" in{
-        val f = repoFixture
+        val f = new repoFixture
         Given(s"a Thing collection with no ${f.testThing1.thingId} Thing in it")
         //removeFromThingCollection(f.testThing1.thingId)
 
@@ -178,7 +176,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
       }
 
       "cleanup after test serie" in {
-        val f = repoFixture
+        val f = new repoFixture
         f.dropThingRepo
       }
 
@@ -187,7 +185,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
       "Receiving a sell thing request " should {
         "answer with NOT_FOUND if user does not exist" in{
           Given("an empty user repo")
-          val f = repoFixture
+          val f = new repoFixture
           f.dropUserRepo
 
           When("a request is sent with an non existing user")
@@ -201,7 +199,7 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
           assert(false,"TODO")
         }
         "answer with bad request if the request is not correct" in{
-          val f = repoFixture
+          val f = new repoFixture
           f.userRepo.upsertObject(f.testUser1)
           Given("a malformed request")
           val req = FakeRequest(PUT, "/users/"+ f.testUser1.userId + "/sellingThings/" + f.testThing1.thingId)
