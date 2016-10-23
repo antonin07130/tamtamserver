@@ -116,11 +116,19 @@ class ThingController @Inject()(configuration: play.api.Configuration)
         val futureWriteThingResult = thingRepo.upsertObject(request.body)
 
         // stick callbacks to write results to send an appropriate answer
-        futureWriteThingResult.map { okResult =>
-          val msg = s" tamtams : sucessfull insertion to MongoDb ${okResult}"
-          logger.debug(msg)
-          resultWithJsonBody(play.api.mvc.Results.Created,msg)
-            .withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
+        futureWriteThingResult.map {
+          case (0,1) => {
+            val msg = s" tamtams : sucessfull insertion to MongoDb of ${thingId}"
+            logger.debug(msg)
+            resultWithJsonBody(play.api.mvc.Results.Created, msg)
+              .withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
+          }
+          case (1,0) => {
+            val msg = s" tamtams : sucessfull update in MongoDb of ${thingId}"
+            logger.debug(msg)
+            resultWithJsonBody(play.api.mvc.Results.Ok, msg)
+              .withHeaders((LOCATION, request.host + routes.ThingController.getThing(thingId)))
+          }
         } /*recover {
           DbExceptionResults
         }*/

@@ -123,7 +123,9 @@ abstract trait ObjectRepository[T] extends MongoRepository {
   def upsertObject(obj: T, id : String)(implicit ec: ExecutionContext): Future[(Int, Int)] = {
     def selector = Json.obj(idFieldName -> id)
     upsert(selector,objToRepo(obj)).map{
-      case UpdateWriteResult(true,nFound,nModified,_,List(),None,None,None) => (nModified, nFound-nModified)
+      case wr@UpdateWriteResult(true,nFound,nModified,_,List(),None,None,None) =>
+        println(wr)
+        (nModified, nFound-nModified)
       case _ => throw new IllegalStateException("upsertObject()")
     }
   }
