@@ -1,6 +1,6 @@
 name := "tamtams"
 
-version := "0.2"
+version := "0.3"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
@@ -28,4 +28,6 @@ scalacOptions in ThisBuild ++= Seq("-feature", "-language:postfixOps")
 
 // fork in run seems to have problems :
 //fork in run := false
+fork in run := true
+
 fork in run := true
