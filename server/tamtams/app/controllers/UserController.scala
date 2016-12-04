@@ -18,6 +18,11 @@ import reactivemongo.play.json.collection.JSONCollection
 import reactivemongo.play.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import utils.ControllerHelpers.resultWithJsonBody
+
+
+
+
 
 /**
   * This controller creates an `Action` to handle HTTP requests to the
@@ -33,6 +38,8 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
 
   // connect to mongoDb collection of users
   val userRepo = new UserRepo(reactiveMongoApi)
+
+
 
 
   // todo : put this code in a function taking a list of anything having an id and returning json or notfound
@@ -58,26 +65,27 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
           Ok(jsUser)
         }
         case Nil => {
-          logger.debug(s"tamtams : thing ${userId} Not found ")
-          NotFound
+          val msg = s"tamtams : thing ${userId} Not found "
+          logger.debug(msg)
+          resultWithJsonBody(play.api.mvc.Results.NotFound, msg)
         }
         case _ :: _ :: xs => {
-          logger.error("tamtams : found 2 or more users matching this id")
-          throw new IllegalStateException
-          InternalServerError("tamtams : found 2 or more users matching this id")
+          val msg = "tamtams : found 2 or more users matching this id"
+          logger.error(msg)
+          throw new IllegalStateException(msg)
         }
         case _ =>{
-          logger.error("tamtams : illegal state trying to getUser")
-          throw new IllegalStateException
-          InternalServerError("tamtams : illegal state trying to getUser (unknown returned object)")
+          val msg = "tamtams : illegal state trying to getUser (unknown returned object)"
+          logger.error(msg)
+          throw new IllegalStateException(msg)
         }
-      } recover {
+      } /*recover {
         // deal with exceptions related to database connection
         case PrimaryUnavailableException => {
           logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
           InternalServerError
         }
-      }
+      }*/
     }
   }
 
@@ -99,34 +107,42 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
       if (userId == request.body.userId) {
         logger.debug(s" tamtams : requesting insertion of User : ${request.body}")
 
+        // (modified, upserted)
         userRepo.upsertObject(request.body).map {
-          case UpdateWriteResult(true, 1, 0, _, _, _, _, _) => {
-            logger.debug(s" tamtams : new user $userId created")
-            Created.withHeaders((LOCATION, request.host + request.uri))
+          case (0, 1) => {
+            val msg = s" tamtams : new user $userId created"
+            logger.debug(msg)
+            resultWithJsonBody(play.api.mvc.Results.Created, msg)
+              .withHeaders((LOCATION, request.host + request.uri))
           }
-          case UpdateWriteResult(true, 1, 1, List(), List(), None, None, None) => {
-            logger.debug(s" tamtams : user updated")
-            Ok.withHeaders((LOCATION, request.host + request.uri))
+          case (1, 0) => {
+            val msg = s" tamtams : user $userId updated"
+            logger.debug(msg)
+            resultWithJsonBody(play.api.mvc.Results.Ok, msg).
+              withHeaders((LOCATION, request.host + request.uri))
           }
           case _ =>{
-            logger.error(s"tamtams : illegal state trying to addUser ")
-            throw new IllegalStateException
-            InternalServerError("tamtams : illegal state trying to putUser (unknown returned result)")
+            val msg = "putUser() illegal state trying to addUser :" + userId
+            logger.error(msg)
+            throw new IllegalStateException(msg)
           }
         } recover {
           // deal with exceptions related to database connection
           case err: CommandError if err.code.contains(11000) => {
-            logger.error(s" tamtams : MongoDb connection error ${err.getMessage()}")
-            InternalServerError
+            val msg = s" tamtams : MongoDb connection error ${err.getMessage()}"
+            logger.error(msg)
+            throw new IllegalStateException(msg)
           }
           case PrimaryUnavailableException => {
-            logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-            InternalServerError
+            val msg = s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}"
+            logger.error(msg)
+            throw new IllegalStateException(msg)
           }
         }
       } else {
-        logger.debug(s" tamtams : userId in request is $userId is different from user.id in Json representation ${request.body.userId}")
-        Future.successful(BadRequest)
+        val msg = s" tamtams : userId in request is $userId is different from user.id in Json representation ${request.body.userId}"
+        logger.debug(msg)
+        Future.successful(resultWithJsonBody(play.api.mvc.Results.BadRequest,msg))
       }
     }
   }
@@ -146,26 +162,30 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   def deleteUser(userId: String) = Action.async {
     request => {
       userRepo.removeObjects(List(userId)).map {
-        case DefaultWriteResult(true,1,_,_,_,_) => {// check option contents
-          logger.debug(s"tamtams : removed object from mongo ${userId}")
-          Ok
+        case 1 => {// check option contents
+          val msg = s"tamtams : removed object from mongo ${userId}"
+          logger.debug(msg)
+          resultWithJsonBody(play.api.mvc.Results.Ok, msg)
+
         }
-        case DefaultWriteResult(true,0,_,_,_,_) => {
-          logger.debug(s"tamtams : user ${userId} Not found ")
-          NotFound
+        case 0 => {
+          val msg = s"tamtams : user ${userId} Not found "
+          logger.debug(msg)
+          resultWithJsonBody(play.api.mvc.Results.NotFound, msg)
         }
         case _ =>{
-          logger.error(s"tamtams : illegal state trying to deleteUser ")
-          throw new IllegalStateException
-          InternalServerError("tamtams : illegal state trying to deleteUser (unknown returned object)")
+          val msg = "tamtams : illegal state trying to deleteUser "
+          logger.error(msg)
+          throw new IllegalStateException(msg)
         }
-      } recover {//future failed
+      } /*recover {//future failed
         // deal with exceptions related to database connection
         case PrimaryUnavailableException => {
-          logger.error(s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}")
-          InternalServerError
+          val msg = s" tamtams : MongoDb connection error ${PrimaryUnavailableException.message}"
+          logger.error(msg)
+          InternalServerError(msg)
         }
-      }
+      }*/
     }
   }
 

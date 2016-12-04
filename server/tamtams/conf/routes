@@ -5,6 +5,9 @@
 # An example controller showing a sample home page
 GET     /sync                            controllers.HomeController.index
 
+GET     /error                           controllers.HomeController.throwExceptionAction
+
+
 ###### user related routes ######
 
 # return a User from the database
