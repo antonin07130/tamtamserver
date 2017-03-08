@@ -1,6 +1,6 @@
 package utils
 
-import models.{Position, Price, Thing, User}
+import models._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -24,6 +24,12 @@ object ThingJsonConversion {
 
   /**
     * This helper function helps [[play.api.libs.json]]
+    * converting [[Picture]] to Json
+    */
+  implicit val pictureWrites= Json.writes[Picture]
+
+  /**
+    * This helper function helps [[play.api.libs.json]]
     * converting [[Thing]] to Json
     */
   implicit val thingWrites = Json.writes[Thing]
@@ -42,16 +48,24 @@ object ThingJsonConversion {
     * JSON reader and validation for [[Price]]
     */
   implicit val priceReads: Reads[Price] = (
-    (JsPath \ "currency").read[Short] and
+    (JsPath \ "currency").read[String] and
       (JsPath \ "price").read[Float]
     )(Price.apply _)
+
+  /**
+    * JSON reader and validation for [[Picture]]
+    */
+  implicit val pictureReads: Reads[Picture] = (
+    (JsPath \ "pictureId").read[String] and
+      (JsPath \ "pictureData").read[String]
+    )(Picture.apply _)
 
   /**
     * JSON reader and validation for [[Thing]]
     */
   implicit val thingReads: Reads[Thing] = (
     (JsPath \ "thingId").read[String] and
-      (JsPath \ "pict").read[String] and
+      (JsPath \ "pict").read[Picture] and
       (JsPath \ "description").read[String] and
       (JsPath \ "price").read[Price] and
       (JsPath \"position").read[Position] and

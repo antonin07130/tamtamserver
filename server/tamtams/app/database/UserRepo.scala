@@ -55,8 +55,8 @@ class UserRepo(reactiveMongoApi: ReactiveMongoApi,
 
     logger.debug(s"mongo update command: $selector $insertionRequest")
     collection.flatMap(jscol => jscol.update(selector, insertionRequest, upsert = false)).map{
-      case UpdateWriteResult(true,0,_,_,_,None,None,None) => 0
-      case UpdateWriteResult(true,1,nModified,_,_,None,None,None) => nModified
+      case uwr@UpdateWriteResult(true,0,_,_,_,None,None,None) => logger.debug("Not updated : " + uwr.toString); 0
+      case uwr@UpdateWriteResult(true,1,nModified,_,_,None,None,None) => logger.debug("Updated : " + uwr.toString); nModified
       case _ => throw new IllegalStateException("addValueToUserArray()")
     }
   }

@@ -29,7 +29,8 @@ import utils.ControllerHelpers.resultWithJsonBody
   * application's home page.
   */
 @Singleton
-class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
+class UserController @Inject()(configuration: play.api.Configuration)
+                              (val reactiveMongoApi: ReactiveMongoApi)
                               (implicit exec: ExecutionContext)
   extends Controller with MongoController with ReactiveMongoComponents {
 
@@ -37,7 +38,7 @@ class UserController @Inject()(val reactiveMongoApi: ReactiveMongoApi)
   val logger: Logger = Logger("application." + this.getClass())
 
   // connect to mongoDb collection of users
-  val userRepo = new UserRepo(reactiveMongoApi)
+  val userRepo = new UserRepo(reactiveMongoApi, configuration.underlying.getString("mongodb.usersCollection"))
 
 
 

@@ -2,7 +2,7 @@ package controllers
 
 import akka.util.Timeout
 import database.{ThingRepo, UserRepo}
-import models.User
+import models.{Picture, User}
 import org.scalatest.GivenWhenThen
 import play.api.libs.json.{JsDefined, _}
 import play.api.test.Helpers._
@@ -57,14 +57,14 @@ class ThingControllerSpecs extends PlaySpec with OneAppPerSuite with GivenWhenTh
         app.configuration.getString("mongodb.usersCollection").get)
       val testThing1 = Thing(
         "testThingId1",
-        "PictureAsString", "createThing test object",
-        Price(1, 1.1f),
+        Picture("pictureId1","PictureAsString"), "createThing test object",
+        Price("USD", 1.1f),
         Position(40.0f, 40.0f),
         false)
       val testThing2 = Thing(
         "testThingId2",
-        "PictureAsString", "createThing test object",
-        Price(1, 1.1f),
+        Picture("pictureId2","PictureAsString"), "createThing test object",
+        Price("EUR", 1.1f),
         Position(40.0f, 40.0f),
         false)
       val testUser1 = User("testUser1")
